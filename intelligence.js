@@ -50,14 +50,21 @@
       <div id="intelLegend" class="intel-legend">Choose a layer to color the countries on the globe.</div></div>
     <p class="intel-caveat">Data includes different reporting years. Live indicators may be unavailable for some countries; blank areas do not mean zero. Sources are shown with each statistic.</p>`;
   side.insertBefore(controls,$('setupControls'));
-  // Give Global Intelligence its own full-width category instead of a fourth quiz tab.
+  // Independent top-level workspaces. Geography retains its three inner tabs;
+  // intelligence has its own sidebar rather than appearing as a fourth game mode.
   const quizNav=$('modeNav'),intelTab=$('tab-intelligence');
-  if(quizNav&&intelTab){
-    const label=document.createElement('div');label.className='atlas-geo-group';label.textContent='GEOGRAPHY TRAINER';
-    quizNav.insertBefore(label,quizNav.firstChild);
-    const intelHeading=document.createElement('div');intelHeading.className='atlas-intel-group';intelHeading.textContent='GLOBAL INTELLIGENCE';
-    quizNav.insertBefore(intelHeading,intelTab);
-    intelTab.textContent='Open Global Intelligence';
+  let geoSection='capitals';
+  const primary=document.createElement('div');primary.className='atlas-primary-nav';primary.setAttribute('aria-label','Main sections');
+  primary.innerHTML='<button type="button" id="primaryGeography" aria-pressed="true">Geography Trainer</button><button type="button" id="primaryIntelligence" aria-pressed="false">Global Intelligence</button>';
+  side.insertBefore(primary,quizNav);
+  $('primaryGeography').addEventListener('click',()=>{const target=$('tab-'+geoSection)||$('tab-capitals');target.click()});
+  $('primaryIntelligence').addEventListener('click',()=>intelTab.click());
+  function setPrimary(section){
+    const isIntel=section==='intelligence';
+    if(!isIntel)geoSection=section;
+    primary.querySelector('#primaryGeography').setAttribute('aria-pressed',String(!isIntel));
+    primary.querySelector('#primaryIntelligence').setAttribute('aria-pressed',String(isIntel));
+    quizNav.hidden=isIntel;
   }
   $('intelCountry').innerHTML='<option value="">Select a country…</option>'+DATA.map(d=>`<option value="${esc(d.country)}">${esc(d.country)}</option>`).join('');
   $('intelLayer').innerHTML=mapLayers.map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
@@ -67,10 +74,11 @@
   const css=document.createElement('style');css.textContent=`
    #intelControls[hidden],#intelPanel[hidden],#intelMapSettings[hidden],#intelProfileSettings[hidden]{display:none!important}
    #modeNav{grid-template-columns:repeat(3,minmax(0,1fr))}
-   #modeNav .atlas-geo-group,#modeNav .atlas-intel-group{grid-column:1/-1;font-size:10px;font-weight:850;color:#a9c8dd;letter-spacing:1.5px;padding:5px 4px 0}
-   #modeNav .atlas-intel-group{border-top:1px solid #35556c;margin-top:11px;padding-top:14px;color:#77f2d5}
-   #modeNav #tab-intelligence{grid-column:1/-1;background:#173847;border:1px solid #466d7e;min-height:39px;font-size:12px}
-   #modeNav #tab-intelligence[aria-selected=true]{background:#267c77;border-color:#77edda;color:#fff}
+   #modeNav[hidden],#modeNav #tab-intelligence{display:none!important}
+   .atlas-primary-nav{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:4px 0 13px}
+   .atlas-primary-nav button{background:#142d44;border:1px solid #476277;color:#d6e5f3;border-radius:11px;font-weight:800;font-size:12px;padding:13px 5px}
+   .atlas-primary-nav button[aria-pressed=true]{background:#1d5559;border-color:#77e5d2;color:#e5fff8}
+   .atlas-primary-nav button:hover{border-color:#70e7d4}
    .side[data-section="intelligence"] .sub,.side[data-section="intelligence"] .progress-section,.side[data-section="intelligence"] .divider,.side[data-section="intelligence"] .about,.side[data-section="intelligence"] #settingsToggle,.side[data-section="intelligence"] .quiz{display:none!important}
    .side[data-section="intelligence"] h1{display:none}
    .side[data-section="intelligence"] #intelControls{display:block}
@@ -321,7 +329,7 @@
     showPanel(d);
   };
   window.addEventListener('atlas:section',e=>{
-    currentSection=e.detail.section;
+    currentSection=e.detail.section;setPrimary(currentSection);
     const active=currentSection==='intelligence';controls.hidden=!active;panel.hidden=true;
     document.querySelector('.stage').classList.toggle('intel-active',active);
     if(!active){pendingToken++;selected=null;visibleWB=null;currentLayer='plain';geoPaint();return;}
