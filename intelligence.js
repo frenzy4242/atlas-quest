@@ -30,7 +30,7 @@
     inequality:{name:'Gini index',indicator:'SI.POV.GINI',fmt:v=>v==null?'No data':v.toFixed(1),desc:'Gini index, higher means greater income inequality',source:'https://data.worldbank.org/indicator/SI.POV.GINI'},
     energy:{name:'Net energy imports',indicator:'EG.IMP.CONS.ZS',fmt:v=>v==null?'No data':v.toFixed(1)+'%',desc:'Net energy imports (% of energy use); negative means net exporter',source:'https://data.worldbank.org/indicator/EG.IMP.CONS.ZS'}
   };
-  const mapLayers = [['plain','No overlay'],...['nato','eu','brics','asean','g7'].map(k=>['org:'+k,'Alliance or group: '+S[k].name]),...['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])];
+  const mapLayers = [['plain','No overlay'],['conflict:2025','Recorded armed conflict events (2025)'],...['nato','eu','brics','asean','g7'].map(k=>['org:'+k,'Alliance or group: '+S[k].name]),...['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])];
   // Interpretive maps prioritize patterns that are useful to compare. G20, AU,
   // total GDP/population and gross imports/exports stay in country profiles.
   const sourceLink = (url,title) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(title)} ↗</a>`;
@@ -39,6 +39,7 @@
   let currentSection='capitals',currentView='profile',currentLayer='plain',selected=null,pendingToken=0;
   let wbCache=new Map(),wbPending=new Map(),geoPaint=paint;
   let visibleWB=null;
+  let conflict2025=null,conflictRequest=null;
   const side=document.querySelector('.side');
   const controls=document.createElement('section');controls.id='intelControls';controls.hidden=true;
   controls.innerHTML=`<div class="intel-kicker">GLOBAL INTELLIGENCE</div>
@@ -186,6 +187,36 @@
     // A valid empty result is different from a failed network request.
     return null;
   }
+  // OWID/UCDP records whether at least one armed conflict event occurred
+  // in the country during 2025. This is NOT a live 'currently at war' status.
+  async function readConflict2025(){
+    if(conflict2025)return conflict2025;
+    if(conflictRequest)return conflictRequest;
+    const endpoint='https://ourworldindata.org/grapher/locations-of-ongoing-armed-conflicts.csv?v=1&csvType=filtered&tab=map&time=2025';
+    const parseCSV=row=>{
+      const cells=[];let cell='',quoted=false;
+      for(let i=0;i<row.length;i++){const ch=row[i];if(ch==='"'){
+        if(quoted&&row[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;
+      }else if(ch===','&&!quoted){cells.push(cell);cell=''}else cell+=ch}
+      cells.push(cell);return cells;
+    };
+    conflictRequest=(async()=>{
+      try{
+        const controller=new AbortController(),t=setTimeout(()=>controller.abort(),12000);
+        let response;try{response=await fetch(endpoint,{signal:controller.signal});}finally{clearTimeout(t)}
+        if(!response.ok)throw Error('Conflict dataset unavailable');
+        const csv=await response.text(),lines=csv.trim().split(/\r?\n/),parsed=new Map();
+        for(const line of lines.slice(1)){
+          const row=parseCSV(line),code=row[1],year=+row[2],value=+row[row.length-1];
+          if(code&&code.length===3&&year===2025&&Number.isFinite(value))parsed.set(code,value);
+        }
+        if(!parsed.size)throw Error('Unrecognized conflict dataset');
+        conflict2025=parsed;return parsed;
+      }catch(e){const failed=new Map();failed.loadFailed=true;return failed}
+      finally{conflictRequest=null}
+    })();
+    return conflictRequest;
+  }
   const COLORS=['#b54849','#d98b39','#d5c05b','#5cb8a9','#28856d'];
   function distribution(){
     if(!currentLayer.startsWith('wb:')||!visibleWB)return null;
@@ -200,6 +231,7 @@
     return stat.bounds.findIndex(x=>n<=x)===-1?4:stat.bounds.findIndex(x=>n<=x);
   }
   function markerColor(d){
+    if(currentLayer==='conflict:2025'){const n=conflict2025?.get(iso3(d));return Number.isFinite(n)?(n>0?'#ef675b':'#3f876e'):'#66717b'}
     if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#49e3be':'#596370';
     if(currentLayer.startsWith('wb:')){
       const n=visibleWB?.get(iso3(d))?.value,idx=categoryFor(n,distribution());
@@ -210,6 +242,14 @@
   function updateLegend(){
     const el=$('intelLegend');
     if(currentLayer==='plain'){el.innerHTML='Select a layer to compare countries on the globe.';return}
+    if(currentLayer==='conflict:2025'){
+      const url='https://ourworldindata.org/grapher/locations-of-ongoing-armed-conflicts';
+      if(!conflict2025||conflict2025.loadFailed){
+        el.innerHTML='<b>Armed conflict events, 2025</b><p>'+(conflict2025?.loadFailed?'Source temporarily unavailable. Re-select this layer to retry.':'Loading documented conflict locations…')+'</p>'+sourceLink(url,'UCDP / OWID source');return;
+      }
+      const count=DATA.filter(d=>conflict2025.get(iso3(d))>0).length;
+      el.innerHTML=`<b>Recorded armed conflict events, 2025</b><div class="intel-pair"><span class="intel-dot" style="background:#ef675b"></span>${count} study-set countries with at least one recorded event</div><div class="intel-pair"><span class="intel-dot" style="background:#3f876e"></span>No recorded event (with data)</div><div class="intel-pair"><span class="intel-dot no"></span>No data</div><p>Historical 2025 indicator, NOT an assessment of active conflicts in 2026. UCDP counts documented events according to its own definitions.</p>${sourceLink(url,'Source and methodology')}`;return;
+    }
     if(currentLayer.startsWith('org:')){
       const key=currentLayer.slice(4),o=S[key],count=DATA.filter(d=>orgMember(key,d)).length;
       el.innerHTML=`<b>${esc(o.name)}</b><div class="intel-pair"><span class="intel-dot"></span>${count} countries highlighted</div><div class="intel-pair"><span class="intel-dot no"></span>Other countries</div><small>${esc(o.detail)} · ${esc(SOURCE_YEAR)}</small><br>${sourceLink(o.source,'Official source')}`;
@@ -224,6 +264,7 @@
   }
   function layerColor(f){
     const d=byName[f.properties.country];if(!d)return '#303b47';
+    if(currentLayer==='conflict:2025'){const n=conflict2025?.get(iso3(d));return Number.isFinite(n)?(n>0?'#ef675b':'#345a4c'):'#3e4a58'}
     if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#35cdae':'#344253';
     if(currentLayer.startsWith('wb:')){
       const n=visibleWB?.get(iso3(d))?.value,idx=categoryFor(n,distribution());
@@ -236,6 +277,10 @@
   function polygonTooltip(f){
     const d=byName[f.properties.country];if(!d)return'';
     const name=esc(d.country);
+    if(currentLayer==='conflict:2025'){
+      const value=conflict2025?.get(iso3(d));
+      return `<div style="padding:7px"><b>${name}</b><br>${Number.isFinite(value)?(value>0?'At least one recorded armed conflict event':'No recorded event'):'No data'} (2025)</div>`;
+    }
     if(currentLayer.startsWith('wb:')){
       const key=currentLayer.slice(3),metric=visibleWB?.get(iso3(d)),stat=distribution();
       if(!metric)return`<div style="padding:7px">${name}<br>No reported data</div>`;
@@ -262,7 +307,12 @@
   paint=function(){if(currentSection==='intelligence')renderLayer();else geoPaint();};
   async function changeLayer(){
     currentLayer=$('intelLayer').value;visibleWB=null;pendingToken++;const token=pendingToken;
-    if(currentLayer.startsWith('wb:')){
+    if(currentLayer==='conflict:2025'){
+      conflict2025=null;updateLegend();renderLayer();
+      const data=await readConflict2025();
+      if(token!==pendingToken||currentSection!=='intelligence')return;
+      conflict2025=data;
+    }else if(currentLayer.startsWith('wb:')){
       updateLegend();renderLayer();
       const data=await readLayer(currentLayer.slice(3));
       if(token!==pendingToken||currentSection!=='intelligence')return;
