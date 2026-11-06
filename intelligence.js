@@ -451,20 +451,24 @@
       visibleWB=data;
     }
     updateLegend();renderLayer();
+    if(currentLayer==='conflict:2025'&&!panel.hidden&&selected)renderTopic();
   }
   function showPanel(d){
     if(!d)return;
     selected=d;panel.hidden=false;$('intelTitle').textContent=d.country;$('intelCountry').value=d.country;
-    // Clicking the geopolitics map should open its actual briefing, not the
-    // default GDP overview. The data remains directly inside Atlas Quest.
-    if(currentView==='map'&&(currentLayer.startsWith('brief:')||currentLayer==='conflict:2025')){
-      $('intelTopic').value=currentLayer==='brief:territory'||currentLayer==='brief:sanctions'?'politics':'security';
+    // Open the topic relevant to the selected map instead of always opening
+    // the default overview or a previously selected unrelated topic.
+    if(currentView==='map'){
+      $('intelTopic').value=
+        currentLayer==='brief:territory'||currentLayer==='brief:sanctions'||currentLayer.startsWith('org:')?'politics':
+        currentLayer.startsWith('wb:')&&currentLayer!=='wb:military'?'economy':'security';
     }
     renderTopic();renderLayer();
   }
   const briefingLinks=items=>sourceBlock((items||[]).map(([name,url])=>[url,name]));
   function briefingSection(d,type){
-    const items=briefItems(d,type);
+    const items=type==='conflict'&&currentView==='map'&&currentLayer==='brief:conflict'
+      ?filteredCases(d,type):briefItems(d,type);
     const heading={conflict:'Conflict briefings',sanctions:'Sanctions and restrictions',territory:'Territorial and maritime disputes'}[type];
     if(!items.length)return `<div class="intel-section"><h4>${heading}</h4><p>No curated briefing for this country yet. This does not mean there is no conflict, sanction or dispute.</p></div>`;
     return `<div class="intel-section"><h4>${heading}</h4><p class="intel-source">Research reviewed: ${INTEL_REVIEW_DATE}; not a live status feed. Multiple distinct conflicts may be linked to the same country.</p>${items.map(item=>
@@ -498,7 +502,14 @@
       $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>Economy & international trade</h4><div id="intelMetricLoad">Loading latest World Bank indicators…</div><p>Exports/imports here mean <b>goods and services in total</b>, not the largest individual products.</p>${metricLinks()}</div><div class="intel-section"><h4>Natural resources, energy & transport</h4><p>Resource reserves, production, energy import dependence, and major maritime routes should be interpreted from dated sector datasets.</p>${sourceBlock([[urls.resources,'USGS Mineral Commodity Summaries (2026)'],[urls.energy,'IEA energy statistics'],[urls.naval,'UNCTAD maritime trade & transport']])}</div>`;
       addMetrics(['gdp','gdppc','exports','imports','inequality','energy'],token);return;
     }
-    $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>Security & conflict research</h4><p>Selected country briefings are based on documented reports, reviewed November 6, 2026. They are explanatory snapshots, not live front-line or sanctions databases. Countries without a briefing have not been assessed as peaceful or unsanctioned.</p>${briefingSection(d,'conflict')}${briefingSection(d,'sanctions')}${briefingSection(d,'territory')}</div><div class="intel-section"><h4>Defense expenditure</h4><div id="intelMetricLoad">Loading World Bank / SIPRI series…</div><p>Military expenditure is measured as a percentage of GDP, not the size of an arsenal.</p></div>`;
+    const eventIndicator=currentView==='map'&&currentLayer==='conflict:2025'
+      ?(conflict2025?.loadFailed?'<p class="intel-warning">2025 event data could not be loaded. Reopen the source to retry.</p>':
+        !conflict2025?'<p>Loading the 2025 event dataset…</p>':
+        Number.isFinite(conflict2025.get(iso3(d)))?
+          `<p class="intel-warning"><b>2025 recorded event indicator:</b> ${conflict2025.get(iso3(d))>0?'At least one documented armed-conflict event':'No recorded armed-conflict event in this dataset'}.</p>`:
+          '<p class="intel-warning">No event record available for this country in the 2025 source.</p>')
+      :'';
+    $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>Security & conflict research</h4>${eventIndicator}<p>Selected country briefings are based on documented reports, reviewed November 6, 2026. They are explanatory snapshots, not live front-line or sanctions databases. Countries without a briefing have not been assessed as peaceful or unsanctioned.</p>${briefingSection(d,'conflict')}${briefingSection(d,'sanctions')}${briefingSection(d,'territory')}</div><div class="intel-section"><h4>Defense expenditure</h4><div id="intelMetricLoad">Loading World Bank / SIPRI series…</div><p>Military expenditure is measured as a percentage of GDP, not the size of an arsenal.</p></div>`;
     addMetrics(['military'],token);
   }
   async function addMetrics(keys,token){
@@ -518,6 +529,7 @@
   }
   function setMapSubject(subject){
     if(!MAP_SUBJECTS[subject])return;
+    if(mapSubject!==subject&&currentView==='map'){panel.hidden=true;selected=null}
     mapSubject=subject;
     $('intelThemeNav').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.intelSubject===subject)));
     const isConflict=subject==='conflicts';
