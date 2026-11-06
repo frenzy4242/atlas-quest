@@ -22,14 +22,15 @@
     #globeWrap.flat-active #globe{visibility:hidden;pointer-events:none}
     #globeWrap.flat-active #resetView{display:none!important}
     #flatMapMain{height:100%;width:100%;touch-action:pan-y;display:block;cursor:default}
-    .flat-land{stroke:#91afc1;stroke-width:.7;vector-effect:non-scaling-stroke;transition:fill .12s;cursor:pointer}
-    .flat-land:hover{stroke:#e9ffff;stroke-width:1.8;filter:brightness(1.25)}
-    .flat-pin{fill:#ffcc73;stroke:#081c32;stroke-width:.7;pointer-events:none}
-    .flat-pin.near{fill:#fff;stroke:#ffe69b;stroke-width:1.4}
+     .flat-land{stroke:#a6c8bc;stroke-width:.7;vector-effect:non-scaling-stroke;transition:fill .12s;cursor:pointer}
+    /* One hover target at a time: the nearest island dot OR a country polygon. */
+    .flat-land.active{stroke:#fff;stroke-width:1.8;fill:#35ad65!important;filter:brightness(1.2)}
+    .flat-pin.near{fill:#fff!important;stroke:#f6aa33!important;stroke-width:1.6}
+    .flat-pin{fill:#fff3bd;stroke:#24443b;stroke-width:.7;pointer-events:none}
     .flat-land{cursor:pointer}
-    .flat-inset{position:absolute;bottom:15px;width:min(38%,340px);height:190px;background:#0c243bbf;border:1px solid #7b9db8;border-radius:11px;overflow:hidden;box-shadow:0 8px 22px #0008}
+     .flat-inset{position:absolute;bottom:15px;width:min(38%,340px);height:190px;background:#a9d3dd;border:1px solid #7b9db8;border-radius:11px;overflow:hidden;box-shadow:0 8px 22px #0008}
     .flat-inset.caribbean{left:14px}.flat-inset.oceania{right:14px}
-    .flat-inset h4{margin:0;padding:7px 9px;font-size:11px;letter-spacing:.35px;font-weight:800;color:#e3f2ff;background:#092038}
+     .flat-inset h4{margin:0;padding:7px 9px;font-size:11px;letter-spacing:.35px;font-weight:800;color:#eefbf6;background:#2b6c64}
     .flat-inset svg{width:100%;height:calc(100% - 29px);display:block}
     #flatMapLabel{position:absolute;top:8px;left:13px;font-size:11px;color:#c0d7e9;background:#091b30bb;border:1px solid #45667b;border-radius:7px;padding:5px 9px;pointer-events:none}
     #flatZoom{position:absolute;right:15px;top:12px;bottom:auto;display:flex;gap:5px}
@@ -91,11 +92,11 @@
   }
   function selectable(d){return region()==='All'||d.region===region()}
   function color(name){
-    const d=byName[name];if(!d)return '#28374a';
-    if(!selectable(d))return '#333b48';
-    if(states.answered&&states.current?.country===name)return '#42ddae';
-    if(states.answered&&states.selected===name)return '#ec896f';
-    return '#2b7792';
+    const d=byName[name];if(!d)return '#36525b';
+    if(!selectable(d))return '#727e80';
+    if(states.answered&&states.current?.country===name)return '#50d58e';
+    if(states.answered&&states.selected===name)return '#df856f';
+    return '#22814b';
   }
   const areaMarkers=new WeakMap();
   // Every microstate and small island remains in the study set. Countries
@@ -105,7 +106,7 @@
   function draw(svg,bounds,w,h,insetType=''){
     svg.replaceChildren();
     const fit=frame(bounds,w,h,w<500?13:36);
-    const base=make('rect');base.setAttribute('width',w);base.setAttribute('height',h);base.setAttribute('fill','#112b40');svg.appendChild(base);
+    const base=make('rect');base.setAttribute('width',w);base.setAttribute('height',h);base.setAttribute('fill','#a6cedc');svg.appendChild(base);
     const viewRegion=region(),hasInsetCaribbean=(viewRegion==='All'||viewRegion==='North America');
     const hasInsetOceania=(viewRegion==='All'||viewRegion==='Oceania');
     const regionForInset=insetRegion[insetType];
@@ -136,33 +137,36 @@
       svg.appendChild(dot);pins.push({country:d.country,x,y,dot});
     }
     areaMarkers.set(svg,{pins,fit,w,h,inset:!!insetType});
+    const resolveTarget=ev=>{
+      const record=areaMarkers.get(svg);
+      const polygon=ev.target.closest?.('path[data-country]')||null;
+      const nearest=nearMarker(svg,ev);
+      const cutoff=polygon?(record?.inset?7:4.2):(record?.inset?17:11);
+      // A dot wins only when it is close enough; otherwise any underlying
+      // land polygon wins. Never allow both to appear selected.
+      if(nearest&&nearest.screenDistance<=cutoff)return {type:'dot',country:nearest.country};
+      return polygon?{type:'polygon',country:polygon.dataset.country}:null;
+    };
+    const hoverTarget=target=>{
+      for(const path of svg.querySelectorAll('path[data-country]')){
+        path.classList.toggle('active',target?.type==='polygon'&&target.country===path.dataset.country);
+      }
+      for(const dot of svg.querySelectorAll('circle.flat-pin')){
+        dot.classList.toggle('near',target?.type==='dot'&&target.country===dot.dataset.country);
+      }
+      svg.style.cursor=target?'pointer':'default';
+    };
     if(!svg.dataset.hitTesting){
       svg.dataset.hitTesting='1';
       svg.addEventListener('click',ev=>{
-        const target=ev.target.closest?.('path[data-country]');
-        const nearest=nearMarker(svg,ev);
-        const inInset=areaMarkers.get(svg)?.inset;
-        // Polygons win except at the actual tiny marker, while ocean/empty
-        // space allows a generous target using closest dot (not first hit).
-        const threshold=target?(inInset?7:4.2):(inInset?17:11);
-        if(nearest&&nearest.screenDistance<=threshold){
-          chooseCountry(nearest.country);return;
-        }
-        if(target)chooseCountry(target.dataset.country);
+        const target=resolveTarget(ev);
+        if(target)chooseCountry(target.country);
       });
-      svg.addEventListener('pointermove',ev=>{
-        const nearest=nearMarker(svg,ev),record=areaMarkers.get(svg);
-        if(!record)return;
-        const active=nearest&&nearest.screenDistance<11?nearest:null;
-        for(const item of record.pins)item.dot.classList.toggle('near',active?.country===item.country);
-        svg.style.cursor=active?'pointer':'default';
-      });
-      svg.addEventListener('pointerleave',()=>{
-        const record=areaMarkers.get(svg);
-        for(const item of record?.pins||[])item.dot.classList.remove('near');
-      });
+      svg.addEventListener('pointermove',ev=>hoverTarget(resolveTarget(ev)));
+      svg.addEventListener('pointerleave',()=>hoverTarget(null));
     }
   }
+
   function nearMarker(svg,ev){
     const r=areaMarkers.get(svg);if(!r?.pins.length)return null;
     const ctm=svg.getScreenCTM?.();
