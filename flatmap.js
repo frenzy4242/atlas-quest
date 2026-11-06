@@ -1,4 +1,4 @@
-/* Atlas Quest V4.3 — optional Seterra-style flat geography map. */
+/* Atlas Quest V4.4 — proportionally projected flat map with inset study regions. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -20,6 +20,7 @@
     #flatMapShell{position:absolute;inset:0;display:none;z-index:1;background:linear-gradient(140deg,#11273e,#07192b);overflow:hidden}
     #globeWrap.flat-active #flatMapShell{display:block}
     #globeWrap.flat-active #globe{visibility:hidden;pointer-events:none}
+    #globeWrap.flat-active #resetView{display:none!important}
     #flatMapMain{height:100%;width:100%;touch-action:pan-y;display:block;cursor:grab}
     #flatMapMain.dragging{cursor:grabbing}
     .flat-land{stroke:#91afc1;stroke-width:.7;vector-effect:non-scaling-stroke;transition:fill .12s;cursor:pointer}
@@ -31,7 +32,7 @@
     .flat-inset h4{margin:0;padding:7px 9px;font-size:11px;letter-spacing:.35px;font-weight:800;color:#e3f2ff;background:#092038}
     .flat-inset svg{width:100%;height:calc(100% - 29px);display:block}
     #flatMapLabel{position:absolute;top:8px;left:13px;font-size:11px;color:#c0d7e9;background:#091b30bb;border:1px solid #45667b;border-radius:7px;padding:5px 9px;pointer-events:none}
-    #flatZoom{position:absolute;right:16px;bottom:15px;display:flex;gap:5px}
+    #flatZoom{position:absolute;right:15px;top:12px;bottom:auto;display:flex;gap:5px}
     #flatZoom button{background:#132d44;border:1px solid #58758d;color:#ecf7ff;border-radius:8px;font-weight:800;padding:8px 12px}
     .flat-map-switch{border:1px solid #476980;background:#092238;border-radius:10px;padding:10px 10px 11px;margin:3px 0 12px}
     .flat-map-switch label{color:#c6e1ea;font-size:11px;letter-spacing:1px;font-weight:800;text-transform:uppercase;display:block;margin-bottom:7px}
@@ -40,7 +41,7 @@
     .flat-map-switch button[aria-pressed=true]{background:#48c8b6;color:#032625;border-color:#48c8b6}
     .side[data-section=intelligence] .flat-map-switch{display:none}
     #globeWrap.flat-active #loading{display:none!important}
-    @media(max-width:700px){.flat-inset{width:37%;height:123px;bottom:53px}.flat-inset h4{font-size:10px;padding:5px}.flat-inset svg{height:calc(100% - 24px)}#flatZoom{bottom:8px;right:8px}#flatMapLabel{font-size:10px}}
+    @media(max-width:700px){.flat-inset{width:37%;height:123px;bottom:14px}.flat-inset h4{font-size:10px;padding:5px}.flat-inset svg{height:calc(100% - 24px)}#flatZoom{top:8px;right:8px;bottom:auto}#flatMapLabel{font-size:10px}}
   `;document.head.appendChild(css);
   const menu = document.createElement('div');menu.className='flat-map-switch';
   menu.innerHTML='<label>Geography map view</label><div class="flat-buttons"><button type="button" data-view="globe" aria-pressed="true">3D Globe</button><button type="button" data-view="flat" aria-pressed="false">2D Flat Map</button></div>';
@@ -50,21 +51,37 @@
   wrap.appendChild(shell);
   const main=$('flatMapMain');
   const make=(type)=>document.createElementNS(N,type);
-  function project(longitude,latitude,b,w,h){
-    let lon=longitude;
-    if(b[2]>180&&lon<0)lon+=360;
-    return [((lon-b[0])/(b[2]-b[0]))*w,((b[3]-latitude)/(b[3]-b[1]))*h];
+  // Keep one coordinate scale in BOTH axes. The previous code mapped longitude
+  // and latitude independently onto the full rectangle and stretched Africa.
+  // A Mercator y-coordinate with equal x/y scaling preserves local angles,
+  // while each region is FIT inside the canvas with generous edge padding.
+  const mercator = lat => {
+    const phi=Math.max(-79,Math.min(84,lat))*Math.PI/180;
+    return Math.log(Math.tan(Math.PI/4+phi/2))*180/Math.PI;
+  };
+  function frame(bounds,w,h,pad=25){
+    const minY=mercator(bounds[1]),maxY=mercator(bounds[3]);
+    const spanX=bounds[2]-bounds[0],spanY=maxY-minY;
+    const scale=Math.min((w-pad*2)/spanX,(h-pad*2)/spanY);
+    return {minX:bounds[0],maxX:bounds[2],maxY,scale,
+      xoff:(w-spanX*scale)/2,yoff:(h-spanY*scale)/2,
+      wrap:bounds[2]>180};
   }
-  function shape(geometry,b,w,h){
-    if(!geometry)return'';
+  function project(lon,lat,fit){
+    if(fit.wrap&&lon<0)lon+=360;
+    return [fit.xoff+(lon-fit.minX)*fit.scale,
+            fit.yoff+(fit.maxY-mercator(lat))*fit.scale];
+  }
+  function shape(geometry,fit,w){
+    if(!geometry)return '';
     const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.coordinates||[];
     let result='';
     for(const poly of polygons)for(const ring of poly){
       let previous=null,part='';
       for(const c of ring){
         if(!c||!Number.isFinite(c[0])||!Number.isFinite(c[1]))continue;
-        const [x,y]=project(c[0],c[1],b,w,h);
-        if(previous&&Math.abs(x-previous[0])>w*.65){result+=part;part='';previous=null}
+        const [x,y]=project(c[0],c[1],fit);
+        if(previous&&Math.abs(x-previous[0])>w*.58){result+=part;part='';previous=null}
         part+=(previous?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);
         previous=[x,y];
       }
@@ -81,21 +98,34 @@
     return '#2b7792';
   }
   function draw(svg,bounds,w,h,markerSize){
-    svg.replaceChildren();const countryShapes=[];
+    svg.replaceChildren();
+    // Insets receive their own fitted map, never an independently stretched image.
+    const fit=frame(bounds,w,h,w<500?13:36);
     const base=make('rect');base.setAttribute('width',w);base.setAttribute('height',h);base.setAttribute('fill','#112b40');svg.appendChild(base);
     for(const f of BORDERS){
       const c=f.properties?.country,d=byName[c];if(!d)continue;
-      const path=make('path'),str=shape(f.geometry,bounds,w,h);if(!str)continue;
+      const path=make('path'),str=shape(f.geometry,fit,w);if(!str)continue;
       path.setAttribute('d',str);path.setAttribute('class','flat-land');
       path.dataset.country=c;path.setAttribute('fill',color(c));
       path.addEventListener('click',ev=>{ev.stopPropagation();chooseCountry(c)});
-      svg.appendChild(path);countryShapes.push(path);
+      svg.appendChild(path);
     }
     for(const d of DATA.filter(x=>x.pin)){
-      const [x,y]=project(d.lng,d.lat,bounds,w,h);
+      const [x,y]=project(d.lng,d.lat,fit);
       if(x<0||x>w||y<0||y>h)continue;
+      // Wider transparent touch area but a restrained visible circular dot.
+      // Mainland microstates receive a much tighter hit zone so clicking Spain
+      // near Andorra is unlikely to register as Andorra.
+      const dense=['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Malta','Singapore'];
+      const tight=dense.includes(d.country);
+      const hit=make('circle');hit.setAttribute('cx',x.toFixed(1));hit.setAttribute('cy',y.toFixed(1));
+      hit.setAttribute('r',tight?Math.min(markerSize+1,4.4):Math.max(markerSize+2,6.3));
+      hit.setAttribute('fill','transparent');hit.style.cursor='pointer';hit.dataset.country=d.country;
+      hit.addEventListener('click',ev=>{ev.stopPropagation();chooseCountry(d.country)});
+      svg.appendChild(hit);
       const dot=make('circle');dot.setAttribute('cx',x.toFixed(1));dot.setAttribute('cy',y.toFixed(1));
-      dot.setAttribute('r',markerSize);dot.classList.add('flat-pin');dot.dataset.country=d.country;
+      dot.setAttribute('r',tight?Math.min(markerSize,2.4):Math.min(markerSize,3.5));
+      dot.classList.add('flat-pin');dot.dataset.country=d.country;
       dot.addEventListener('click',ev=>{ev.stopPropagation();chooseCountry(d.country)});
       svg.appendChild(dot);
     }
@@ -121,7 +151,7 @@
   }
   function updateMap(){
     const r=region(),b=ranges[r]||ranges.All;
-    draw(main,b,1000,530,r==='All'?3.2:3.7);
+    draw(main,b,1000,530,r==='All'?3.3:4);
     shell.querySelectorAll('.flat-inset').forEach(el=>el.remove());
     if(r==='All'||r==='North America')inset('Caribbean islands','caribbean',[-88,8,-58,28]);
     if(r==='All'||r==='Oceania')inset('Oceania / Pacific islands','oceania',[110,-44,211,21]);
