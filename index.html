@@ -276,7 +276,7 @@ function start(){
 }
 function ask(){
  cancelAdvance();const s=states;s.current=s.round[s.index];s.answered=false;s.selected=null;
- resetQuestionUI();focusRegion();
+ resetQuestionUI();
 }
 function saveAnswerOutcome(correct){
  const s=states,list=record.missed[s.mode];if(!list)return;
@@ -307,8 +307,8 @@ function finish(correct,message,selected=null,{typo=false}={}){
  $('qSub').style.color=correct?(typo?'#ffdc9b':'#8cf6d6'):'#ffd1aa';
  $('answer').classList.add('hidden');$('reveal').classList.add('hidden');
  $('next').textContent=s.index===s.round.length-1?'See results':'Next country';$('mobileNext').textContent=$('next').textContent;
- correctMarker();tinyMarkers();paint();flyTo(s.current,1.38);updateStats();
- updateNextControls(typo?2800:correct?1500:2500);
+ correctMarker();tinyMarkers();paint();updateStats();
+ updateNextControls(typo?1500:correct?300:2000);
 }
 // Damerau–Levenshtein distance (including adjacent letter swaps) for minor capital typos.
 function editDistance(a,b){
@@ -401,4 +401,4 @@ try{
  paint();$('loading').classList.add('hidden');
 }catch(error){$('loading').textContent='Could not load the globe. Check your internet connection and reload.';console.error(error)}
 
-</script></body></html>
+</script><script src="v4.js"></script><script src="intelligence.js"></script><script src="flatmap.js"></script><script src="trade.js"></script></body></html>
