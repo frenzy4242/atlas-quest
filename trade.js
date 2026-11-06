@@ -3,7 +3,7 @@
  'use strict';
  const $=id=>document.getElementById(id);
  const host=$('intelPanelBody');if(!host)return;
- const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;'}[ch]));
+ const esc=x=>String(x??'').replace(/[&<>\"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch]));
  const cache=new Map();
  let active=0;
  const source='<a href="https://comtradeplus.un.org/" target="_blank" rel="noopener noreferrer">UN Comtrade official source ↗</a>';
