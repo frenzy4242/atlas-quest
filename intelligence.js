@@ -35,6 +35,16 @@
   const BRIEF={"conflict":{"Russia":[{"id":"ru-uk","title":"Russia–Ukraine war","type":"Interstate war","since":"2014; full-scale Russian invasion from February 24, 2022","actors":"Russian and Ukrainian armed forces","where":"Fighting concentrated in Ukraine, with strikes and other attacks affecting both countries.","summary":"Russia launched a full-scale invasion of Ukraine in 2022 after conflict beginning in 2014. UN monitors continue to document civilian harm in Ukraine; ceasefire diplomacy has not ended the war.","impact":"The war has caused civilian deaths, displacement, infrastructure damage and international security repercussions.","sources":[["UN civilian protection report, September 2026","https://ukraine.un.org/en/324561-protection-civilians-armed-conflict-%E2%80%94-september-2026"],["UN conflict data","https://ucdp.uu.se/downloads/"]]}],"Ukraine":[{"id":"ru-uk","title":"Russia–Ukraine war","type":"Interstate war","since":"2014; full-scale invasion from February 24, 2022","actors":"Russian and Ukrainian armed forces","where":"Front lines and attacks across Ukraine; some cross-border strikes.","summary":"Russia's invasion violates Ukraine's territorial sovereignty. Fighting and strikes have continued during 2026 alongside international mediation efforts.","impact":"Civilian casualties, displacement and energy-infrastructure damage are documented by UN monitors.","sources":[["UN civilian protection report, September 2026","https://ukraine.un.org/en/324561-protection-civilians-armed-conflict-%E2%80%94-september-2026"],["UN Ukraine country reports","https://ukraine.un.org/"]]}],"Mexico":[{"id":"mx-organized","title":"Organized criminal and cartel-related violence","type":"Organized criminal violence","since":"Intensified security campaign from 2006; dynamics have changed repeatedly","actors":"Mexican authorities and multiple criminal groups, including factions associated with the Sinaloa Cartel and CJNG","where":"Unevenly distributed across Mexican states; not a single nationwide front line.","summary":"Cartel competition, trafficking networks, and government operations contribute to attacks, coercion, and insecurity. These events should not automatically be classified as interstate war or a single unified civil war.","impact":"Displacement, disappearances and violence against communities have been documented; conditions vary markedly by region.","sources":[["ACLED Mexico monitoring","https://acleddata.com/country/mexico"],["CFR conflict background","https://www.cfr.org/global-conflict-tracker/conflict/criminal-violence-mexico"],["Reuters, September 2026","https://www.reuters.com/world/americas/bomb-attacks-by-mexican-gangs-rise-officials-say-2026-09-01/"]]}],"Sudan":[{"id":"sudan-2023","title":"Sudan civil war","type":"Civil war","since":"April 15, 2023","actors":"Sudanese Armed Forces (SAF), Rapid Support Forces (RSF), and allied forces","where":"Multiple regions of Sudan, especially Darfur and Kordofan, with front lines shifting.","summary":"The SAF and RSF have fought for control since 2023. International investigations document severe abuses and an ongoing humanitarian emergency.","impact":"Large-scale displacement, food insecurity and grave harm to civilians.","sources":[["United Nations Sudan background","https://www.un.org/en/node/227412"],["UN country response, April 2026","https://sudan.un.org/en/313793-three-years-too-long-people-sudan-need-peace"],["CFR, November 2026","https://www.cfr.org/global-conflict-tracker/conflict/power-struggle-sudan"]]}],"Myanmar":[{"id":"myanmar-2021","title":"Myanmar post-coup armed conflict","type":"Civil war and insurgencies","since":"Escalated after the February 2021 military coup","actors":"Myanmar military and multiple ethnic armed organizations and anti-military resistance groups","where":"Fighting across several states and regions; changing territorial control.","summary":"Armed resistance and military operations continue following the 2021 coup. Numerous groups are involved; this is not a single two-party conflict.","impact":"Displacement, restrictions on humanitarian access and civilian harm.","sources":[["UN humanitarian update, July 2026","https://myanmar.un.org/en/319232-myanmar-humanitarian-update-no-52"],["ACLED assessment, 2026","https://acleddata.com/report/myanmar-outlook-fighting-set-intensify-center-country"]]}]},"sanctions":{"Russia":[{"issuer":"United States — OFAC","scope":"Financial, trade, sectoral and targeted restrictions under multiple Russia-related authorities.","why":"Responses to Russia's actions in Ukraine and other specified conduct.","sources":[["OFAC Russia-related programs","https://ofac.treasury.gov/sanctions-programs-and-country-information/russia-related-sanctions"]]},{"issuer":"European Union","scope":"Sectoral economic restrictions and listings of individuals and entities, with exemptions and licensing rules.","why":"Measures in response to Russia's invasion of Ukraine.","sources":[["EU sanctions overview","https://www.consilium.europa.eu/en/policies/sanctions-against-russia/timeline-packages-sanctions-since-february-2022/"]]}],"Iran":[{"issuer":"United States — OFAC","scope":"Multiple Iran sanctions authorities affect specified trade, finance, sectors, individuals and entities; permissions and exemptions vary.","why":"A range of U.S. foreign policy and security objectives.","sources":[["OFAC Iran sanctions","https://ofac.treasury.gov/sanctions-programs-and-country-information/iran-sanctions"]]}],"Sudan":[{"issuer":"United States — OFAC","scope":"Targeted Sudan/Darfur restrictions, including specified persons and networks; not a blanket ban on all dealings with Sudan.","why":"Responses to the conflict, abuses and destabilizing conduct.","sources":[["OFAC Sudan/Darfur sanctions","https://ofac.treasury.gov/sanctions-programs-and-country-information/sudan-and-darfur-sanctions"]]}],"Myanmar":[{"issuer":"United States — OFAC","scope":"Targeted designations and restrictions under Burma-related authorities; scope depends on the listed parties and applicable rules.","why":"Military rule, human-rights abuses, and related destabilizing actions.","sources":[["OFAC Burma-related sanctions","https://ofac.treasury.gov/sanctions-programs-and-country-information/burma"]]}],"Venezuela":[{"issuer":"United States — OFAC","scope":"Government-related and targeted sanctions; numerous general licenses authorize defined activities, including some energy-sector transactions.","why":"U.S. measures concerning the Venezuelan government and designated actors.","sources":[["OFAC Venezuela sanctions and licenses","https://ofac.treasury.gov/sanctions-programs-and-country-information/venezuela-related-sanctions"]]}],"Belarus":[{"issuer":"European Union","scope":"Targeted listings, financial and trade restrictions, and other measures affecting listed persons or sectors.","why":"EU responses to repression and Belarus's involvement in Russia's aggression against Ukraine.","sources":[["EU sanctions against Belarus","https://www.consilium.europa.eu/en/policies/sanctions-against-belarus/"]]}],"Mexico":[{"issuer":"United States — OFAC (targeted actors, not Mexico as a state)","scope":"Sanctions on named drug-trafficking organizations, individuals and networks. This is NOT a countrywide sanction on Mexico.","why":"Counter-narcotics and illicit-finance enforcement.","sources":[["OFAC counter-narcotics programs","https://ofac.treasury.gov/sanctions-programs-and-country-information/counter-narcotics-trafficking-sanctions"],["U.S. Treasury, September 2026","https://home.treasury.gov/news/press-releases/sb0636"]]}]},"territory":{"Ukraine":[{"title":"Crimea and other occupied Ukrainian territories","status":"Russia claims annexation of Crimea and other Ukrainian territories. These claims are not generally recognized internationally; the UN affirms Ukraine's territorial integrity.","where":"Within internationally recognized Ukrainian territory.","sources":[["UN civilian-monitoring reports","https://ukraine.un.org/en/324561-protection-civilians-armed-conflict-%E2%80%94-september-2026"],["UN General Assembly documents","https://www.un.org/en/ga/"]]}],"Russia":[{"title":"Territorial claims relating to Ukraine","status":"Russia claims sovereignty over Ukrainian territory including Crimea, a claim rejected by Ukraine and not generally recognized internationally.","where":"Crimea and other regions of Ukraine.","sources":[["UN Ukraine situation","https://ukraine.un.org/"]]}],"India":[{"title":"Kashmir dispute","status":"India and Pakistan administer different parts of Kashmir and contest its status. The Line of Control divides the principal administered areas.","where":"Kashmir in the Himalayan region.","sources":[["UNMOGIP mandate","https://unmogip.unmissions.org/en"]]}],"Pakistan":[{"title":"Kashmir dispute","status":"Pakistan and India contest Kashmir; administered portions are separated by the Line of Control.","where":"Kashmir in the Himalayan region.","sources":[["UNMOGIP mandate","https://unmogip.unmissions.org/en"]]}],"Morocco":[{"title":"Western Sahara","status":"Morocco administers most of Western Sahara and advocates autonomy under Moroccan sovereignty; the Polisario Front seeks self-determination. The territory's final status remains contested.","where":"Western Sahara on Africa's Atlantic coast.","sources":[["UN decolonization: Western Sahara","https://www.un.org/dppa/decolonization/en/nsgt/western-sahara"],["UN Western Sahara peace efforts","https://peacekeeping.un.org/en/news/western-sahara-un-stands-ready-to-keep-supporting-peace-efforts-as-minurso"]]}],"Philippines":[{"title":"South China Sea maritime disputes","status":"The Philippines and China have overlapping maritime claims. A 2016 arbitral tribunal issued an award under UNCLOS; China rejects the award.","where":"Parts of the South China Sea, including maritime features.","sources":[["Permanent Court of Arbitration case","https://pca-cpa.org/en/cases/7/"]]}],"China":[{"title":"South China Sea claims","status":"China's extensive maritime claims overlap those of several neighboring states; China rejects the 2016 Philippines v. China arbitral award.","where":"South China Sea.","sources":[["Permanent Court of Arbitration case","https://pca-cpa.org/en/cases/7/"]]}]}};
   const caseCount=type=>Object.keys(BRIEF[type]).length;
   const briefItems=(d,type)=>BRIEF[type][d.country]||[];
+  const conflictMatches=(item,selection)=>{
+    if(selection==='all')return true;
+    if(selection==='interstate')return item.type==='Interstate war';
+    if(selection==='civil')return /Civil war|insurgenc/i.test(item.type);
+    return item.type==='Organized criminal violence';
+  };
+  const filteredCases=(d,kind)=>{
+    const records=briefItems(d,kind);
+    return kind==='conflict'?records.filter(x=>conflictMatches(x,$('intelConflictFilter')?.value||'all')):records;
+  };
   const briefColor={conflict:'#ee745c',sanctions:'#c89b5c',territory:'#9d8de7'};
   const mapLayers = [['plain','No overlay'],['brief:conflict','Documented conflicts — country briefings'],['brief:sanctions','Selected sanctions programs & targets'],['brief:territory','Territorial disputes — involved countries'],['conflict:2025','Recorded armed conflict events (2025)'],...['nato','eu','brics','asean','g7'].map(k=>['org:'+k,'Alliance or group: '+S[k].name]),...['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])];
   // Interpretive maps prioritize patterns that are useful to compare. G20, AU,
@@ -54,6 +64,12 @@
     <div id="intelProfileSettings"><label class="intel-lbl" for="intelCountry">Select a country</label><select id="intelCountry"></select>
       <label class="intel-lbl" for="intelTopic">Profile topic</label><select id="intelTopic"><option value="overview">Overview</option><option value="politics">Geopolitics & relations</option><option value="economy">Economics & trade</option><option value="security">Security & conflicts</option></select></div>
     <div id="intelMapSettings" hidden><label class="intel-lbl" for="intelLayer">Map layer</label><select id="intelLayer"></select>
+      <div id="intelConflictControls" hidden><label class="intel-lbl" for="intelConflictFilter">Conflict classification</label><select id="intelConflictFilter">
+        <option value="all">All documented situations</option>
+        <option value="interstate">Interstate wars</option>
+        <option value="civil">Civil wars and insurgencies</option>
+        <option value="criminal">Organized criminal violence</option>
+      </select><p class="intel-caveat">Classification describes the type of violence, not a universal severity ranking.</p></div>
       <div id="intelLegend" class="intel-legend">Choose a layer to color the countries on the globe.</div></div>
     <p class="intel-caveat">Data includes different reporting years. Live indicators may be unavailable for some countries; blank areas do not mean zero. Sources are shown with each statistic.</p>`;
   side.insertBefore(controls,$('setupControls'));
@@ -243,7 +259,7 @@
   function markerColor(d){
     if(currentLayer.startsWith('brief:')){
       const kind=currentLayer.slice(6);
-      return briefItems(d,kind).length?briefColor[kind]:'#596574';
+      return filteredCases(d,kind).length?briefColor[kind]:'#596574';
     }
     if(currentLayer==='conflict:2025'){const n=conflict2025?.get(iso3(d));return Number.isFinite(n)?(n>0?'#ef675b':'#3f876e'):'#66717b'}
     if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#49e3be':'#596370';
@@ -261,7 +277,7 @@
       const note=type==='conflict'?'Includes interstate war, civil wars, and organized criminal violence; these are not interchangeable classifications.':
         type==='sanctions'?'Includes country-focused restrictions and specific sanctioned actors; highlighting does NOT mean the entire country is embargoed.':
         'A highlighted country is associated with a claim; the whole national territory is not necessarily disputed.';
-      el.innerHTML=`<b>${title}</b><div class="intel-pair"><span class="intel-dot" style="background:${briefColor[type]}"></span>${caseCount(type)} countries with verified briefings</div><div class="intel-pair"><span class="intel-dot no"></span>Not covered by this curated layer</div><p>${note}</p><small>Research snapshot: ${INTEL_REVIEW_DATE}. Click highlighted countries for context and original sources. Not a live or exhaustive global database.</small>`;
+      el.innerHTML=`<b>${title}</b><div class="intel-pair"><span class="intel-dot" style="background:${briefColor[type]}"></span>${DATA.filter(d=>filteredCases(d,type).length).length} countries represented by this selection</div><div class="intel-pair"><span class="intel-dot no"></span>Not covered by this curated layer</div><p>${note}</p><small>Research snapshot: ${INTEL_REVIEW_DATE}. Click highlighted countries for context and original sources. Not a live or exhaustive global database.</small>`;
       return;
     }
     if(currentLayer==='plain'){el.innerHTML='Select a layer to compare countries on the globe.';return}
@@ -289,7 +305,7 @@
     const d=byName[f.properties.country];if(!d)return '#303b47';
     if(currentLayer.startsWith('brief:')){
       const type=currentLayer.slice(6);
-      return briefItems(d,type).length?briefColor[type]:'#344252';
+      return filteredCases(d,type).length?briefColor[type]:'#344252';
     }
     if(currentLayer==='conflict:2025'){const n=conflict2025?.get(iso3(d));return Number.isFinite(n)?(n>0?'#ef675b':'#345a4c'):'#3e4a58'}
     if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#35cdae':'#344253';
@@ -305,7 +321,7 @@
     const d=byName[f.properties.country];if(!d)return'';
     const name=esc(d.country);
     if(currentLayer.startsWith('brief:')){
-      const type=currentLayer.slice(6),items=briefItems(d,type);
+      const type=currentLayer.slice(6),items=filteredCases(d,type);
       return `<div style="padding:8px"><b>${name}</b><br>${items.length?esc(items[0].title||items[0].issuer||'Documented case'):'Not included in this selected briefing set'}<br><small>${INTEL_REVIEW_DATE}</small></div>`;
     }
     if(currentLayer==='conflict:2025'){
@@ -338,6 +354,7 @@
   paint=function(){if(currentSection==='intelligence')renderLayer();else geoPaint();};
   async function changeLayer(){
     currentLayer=$('intelLayer').value;visibleWB=null;pendingToken++;const token=pendingToken;
+    $('intelConflictControls').hidden=currentLayer!=='brief:conflict';
     if(currentLayer==='conflict:2025'){
       conflict2025=null;updateLegend();renderLayer();
       const data=await readConflict2025();
@@ -354,6 +371,11 @@
   function showPanel(d){
     if(!d)return;
     selected=d;panel.hidden=false;$('intelTitle').textContent=d.country;$('intelCountry').value=d.country;
+    // Clicking the geopolitics map should open its actual briefing, not the
+    // default GDP overview. The data remains directly inside Atlas Quest.
+    if(currentView==='map'&&currentLayer.startsWith('brief:')){
+      $('intelTopic').value=currentLayer==='brief:territory'?'politics':'security';
+    }
     renderTopic();renderLayer();
   }
   const briefingLinks=items=>sourceBlock((items||[]).map(([name,url])=>[url,name]));
@@ -384,14 +406,14 @@
       addMetrics(['gdp','gdppc','population','growth'],token);return;
     }
     if(t==='politics'){
-      $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>International organizations & alliances</h4>${orgTags(d)}</div><div class="intel-section"><h4>Government & diplomacy</h4><p>Political systems, officeholders, and diplomatic relationships can change. Use these current directories rather than an unverified static classification.</p>${sourceBlock([[urls.leaders,'CIA World Leaders: cabinet and leaders'],['https://www.un.org/en/about-us/member-states','United Nations member-state directory']])}</div><div class="intel-section"><h4>Territorial disputes & sanctions</h4><p>Territorial claims and sanctions involve different jurisdictions and legal interpretations. These links are sources, <b>not an assertion</b> that this country is under sanctions or is involved in a dispute.</p>${briefingSection(d,'territory')}${briefingSection(d,'sanctions')}</div>`;
+      $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>International organizations & alliances</h4>${orgTags(d)}</div><div class="intel-section"><h4>Government & diplomacy</h4><p>Political systems, officeholders, and diplomatic relationships can change. Use these current directories rather than an unverified static classification.</p>${sourceBlock([[urls.leaders,'CIA World Leaders: cabinet and leaders'],['https://www.un.org/en/about-us/member-states','United Nations member-state directory']])}</div><div class="intel-section"><h4>Territorial disputes & sanctions</h4><p>Selected documented territorial claims and sanctions programs appear below. These do not imply blanket sanctions on every resident or that the entire country is disputed. No briefing does not mean no issue exists.</p>${briefingSection(d,'territory')}${briefingSection(d,'sanctions')}</div>`;
       return;
     }
     if(t==='economy'){
       $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>Economy & international trade</h4><div id="intelMetricLoad">Loading latest World Bank indicators…</div><p>Exports/imports here mean <b>goods and services in total</b>, not the largest individual products.</p>${metricLinks()}</div><div class="intel-section"><h4>Natural resources, energy & transport</h4><p>Resource reserves, production, energy import dependence, and major maritime routes should be interpreted from dated sector datasets.</p>${sourceBlock([[urls.resources,'USGS Mineral Commodity Summaries (2026)'],[urls.energy,'IEA energy statistics'],[urls.naval,'UNCTAD maritime trade & transport']])}</div>`;
       addMetrics(['gdp','gdppc','exports','imports','inequality','energy'],token);return;
     }
-    $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>Security & conflict research</h4><p>Atlas Quest does not presently maintain a verified live conflict or sanctions status for every country. The sources below provide dated, documented records; a missing marker is not proof of peace.</p>${briefingSection(d,'conflict')}${briefingSection(d,'sanctions')}${briefingSection(d,'territory')}</div><div class="intel-section"><h4>Defense expenditure</h4><div id="intelMetricLoad">Loading World Bank / SIPRI series…</div><p>Military expenditure is measured as a percentage of GDP, not the size of an arsenal.</p></div>`;
+    $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>Security & conflict research</h4><p>Selected country briefings are based on documented reports, reviewed November 6, 2026. They are explanatory snapshots, not live front-line or sanctions databases. Countries without a briefing have not been assessed as peaceful or unsanctioned.</p>${briefingSection(d,'conflict')}${briefingSection(d,'sanctions')}${briefingSection(d,'territory')}</div><div class="intel-section"><h4>Defense expenditure</h4><div id="intelMetricLoad">Loading World Bank / SIPRI series…</div><p>Military expenditure is measured as a percentage of GDP, not the size of an arsenal.</p></div>`;
     addMetrics(['military'],token);
   }
   async function addMetrics(keys,token){
@@ -421,6 +443,9 @@
     if(globe)globe.pointOfView({lat:d.lat,lng:d.lng,altitude:1.55},650);showPanel(d);
   });
   $('intelLayer').addEventListener('change',changeLayer);
+  $('intelConflictFilter').addEventListener('change',()=>{if(currentLayer==='brief:conflict'){updateLegend();renderLayer()}});
+  // Returning to the global map with conflict layer selected keeps its filter.
+
   $('intelClose').addEventListener('click',()=>{selected=null;panel.hidden=true;renderLayer()});
   const priorShowCountry=showCountry;
   showCountry=function(country){
