@@ -1,7 +1,7 @@
 /* Atlas Quest V4 – additive enhancements to V3. Existing globe, questions and country data remain intact. */
 (() => {
   'use strict';
-  const VERSION = '4.1.0-preview';
+  const VERSION = '4.2.0-preview';
   const DAY = 86400000;
   const original = { start, ask, finish, complete, store, switchMode, updateStats, showCountry, tinyMarkers };
   const safe = (value) => escapeHTML(String(value ?? ''));
@@ -25,6 +25,7 @@
   css.textContent = `
     .tag[hidden],#timeStat[hidden],#resetRun[hidden]{display:none!important}
     .mode-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:7px 0 13px;padding:5px;border:1px solid #28435e;border-radius:13px;background:#0a182c}
+    .intel-entry{grid-column:1/-1;margin-top:10px!important;border:1px solid #3a6571!important;background:#0c3041!important;letter-spacing:.2px} 
     .mode-tab{min-width:0;border:1px solid transparent;color:#b7cce1;background:transparent;border-radius:9px;padding:11px 5px;font-size:12px;font-weight:750;transition:background .13s ease,color .13s ease}
     .mode-tab[aria-selected="true"]{background:#21465b;color:#eafff8;border-color:#418a8a}
     .mode-tab:focus-visible,.mode-tab:hover{outline:2px solid #70dfce;outline-offset:-2px}
@@ -36,6 +37,7 @@
     .mode-configuration .field{margin:11px 0}
     #modeSectionHint{font-size:11px;line-height:1.5;color:#a8c6dc;margin:0 1px 8px}
     .side #legacyModeField,.side #reviewTypeWrap,.side #adaptiveToggleWrap,.side #adaptiveHelp{display:none!important}
+    .side[data-section="intelligence"] #setupControls,.side[data-section="intelligence"] #settingsToggle,.side[data-section="intelligence"] .setup-line,.side[data-section="intelligence"] .progress-section,.side[data-section="intelligence"] .about,.side[data-section="intelligence"] .divider{display:none!important}
     .side[data-section="explore"] #practiceControls,.side[data-section="explore"] #capitalKindField,.side[data-section="explore"] #speedToggleWrap,.side[data-section="explore"] #flagToggleWrap,.side[data-section="explore"] #start{display:none!important}
     .side[data-section="countries"] #capitalKindField{display:none!important}
     .side[data-section="explore"] #missedSummary{display:none}
@@ -96,11 +98,11 @@
   const existingModeField = $('mode').closest('.field');
   existingModeField.id='legacyModeField';
   const nav=document.createElement('nav');nav.className='mode-nav';nav.id='modeNav';nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Atlas Quest sections');
-  const sections=[['countries','Countries'],['capitals','Capitals'],['explore','Explore']];
+  const sections=[['countries','Countries'],['capitals','Capitals'],['explore','Explore'],['intelligence','Global Intelligence']];
   for(const [key,name] of sections){
     const button=document.createElement('button');button.type='button';button.className='mode-tab';button.id=`tab-${key}`;
     button.setAttribute('role','tab');button.dataset.section=key;button.setAttribute('aria-selected',key===activeSection?'true':'false');
-    button.textContent=name;nav.append(button);
+    button.textContent=name;if(key==='intelligence')button.classList.add('intel-entry');nav.append(button);
   }
   side.insertBefore(nav,side.querySelector('.fields'));
   const settingsBtn = document.createElement('button');settingsBtn.type='button';settingsBtn.id='settingsToggle';settingsBtn.setAttribute('aria-expanded','true');
@@ -143,7 +145,7 @@
 
   function badgeUpdate(){
     const selected=$('mode').value, r=$('region').value, count=eligibleData().length;
-    if(selected==='explore'){badge.hidden=true;return}
+    if(activeSection==='explore'||activeSection==='intelligence'||selected==='explore'){badge.hidden=true;return}
     badge.hidden=false;
     if(selected==='review'){
       const m=selectedQuiz(), total=record.missed[m].filter(c=>r==='All'||byName[c]?.region===r).length;
@@ -160,11 +162,11 @@
     const learning=entries.filter(x=>x?.attempts && !isMastered(x)).length;
     const due=entries.filter(x=>x?.attempts && isDue(x)).length;
     const noun=activeSection==='countries'?'Countries':'Capitals';
-    masterySummary.innerHTML=activeSection==='explore'?'':`<div><b>${mastered}</b>${noun} mastered</div><div><b>${learning}</b>Learning</div><div><b>${due}</b>Due for review</div>`;
+    masterySummary.innerHTML=(activeSection==='explore'||activeSection==='intelligence')?'':`<div><b>${mastered}</b>${noun} mastered</div><div><b>${learning}</b>Learning</div><div><b>${due}</b>Due for review</div>`;
     const selected = selectedQuiz();
     const key=`${selected}|${getRegion()}`;
     const pb=record.personalBests[key];
-    recordsSummary.textContent=activeSection==='explore'?'':pb?`Speedrun best (${getRegion()}): ${formatTime(pb.fastest)} · perfect: ${pb.perfect?formatTime(pb.perfect):'not yet'} · best accuracy: ${pb.accuracy}%`:'Speedrun personal records appear after you complete a timed challenge.';
+    recordsSummary.textContent=(activeSection==='explore'||activeSection==='intelligence')?'':pb?`Speedrun best (${getRegion()}): ${formatTime(pb.fastest)} · perfect: ${pb.perfect?formatTime(pb.perfect):'not yet'} · best accuracy: ${pb.accuracy}%`:'Speedrun personal records appear after you complete a timed challenge.';
   }
   function updateVisualProgress(){
     const s=states;const length=s.round.length;
@@ -226,14 +228,14 @@
     $('speedToggleWrap').classList.toggle('hidden',activeSection==='explore');
   }
   function setModeForConfig(){
-    if(activeSection==='explore'){$('mode').value='explore';}
+    if(activeSection==='explore'||activeSection==='intelligence'){$('mode').value='explore';}
     else if(practiceSelection()==='missed'){$('mode').value='review';$('reviewType').value=selectedQuiz();}
     else $('mode').value=selectedQuiz();
   }
   function clearRun(){
     cancelAdvance();hideToast();resetClock();activeSession=false;runBtn.hidden=true;
     states.round=[];states.index=0;states.correct=0;states.streak=0;states.current=null;states.selected=null;states.answered=false;states.finished=true;states.review=false;
-    states.mode=activeSection==='explore'?'explore':selectedQuiz();states.region=getRegion();
+    states.mode=(activeSection==='explore'||activeSection==='intelligence')?'explore':selectedQuiz();states.region=getRegion();
     $('quiz').classList.add('hidden');$('answer').classList.add('hidden');$('reveal').classList.add('hidden');
     $('next').classList.add('hidden');$('mobileNext').classList.add('hidden');$('flagHint').classList.add('hidden');
     $('result').classList.add('hidden');$('exploreCard').classList.add('hidden');
@@ -247,14 +249,17 @@
     activeSection=section;side.dataset.section=section;
     nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.section===section)));
     clearRun();setModeForConfig();refreshPracticeText();badgeUpdate();updateMasterySummary();
-    if(section==='explore'&&startExplore)start();
+    if((section==='explore'||section==='intelligence')&&startExplore)start();
+    if(section==='intelligence'){$('qLabel').textContent='GLOBAL INTELLIGENCE';$('qTitle').textContent='Explore countries, relations and trade';$('qSub').textContent='Select a map layer or click a country to explore its profile.';}
+    paint();window.dispatchEvent(new CustomEvent('atlas:section',{detail:{section}}));
   }
   nav.addEventListener('click',ev=>{const b=ev.target.closest('button[data-section]');if(b)selectSection(b.dataset.section)});
   runBtn.addEventListener('click',()=>{clearRun();setModeForConfig();refreshPracticeText()});
   for(const id of ['capitalKind','practiceStyle','region']){
     $(id).addEventListener('change',()=>{
-      if(activeSection==='explore'){selectSection('explore');return;}
+      if(activeSection==='explore'||activeSection==='intelligence'){selectSection(activeSection);return;}
       clearRun();setModeForConfig();refreshPracticeText();badgeUpdate();updateMasterySummary();
+      paint();
     });
   }
   store = function(){original.store();refreshPracticeText();badgeUpdate();updateMasterySummary()};
@@ -265,7 +270,7 @@
     // Abort prior run before changing any underlying V3 state.
     cancelAdvance();resetClock();hideToast();repeatCount={};
     setModeForConfig();
-    const adaptiveMode=activeSection!=='explore'&&practiceSelection()==='adaptive';
+    const adaptiveMode=activeSection!=='explore'&&activeSection!=='intelligence'&&practiceSelection()==='adaptive';
     original.start();
     const s=states;
     if(adaptiveMode && s.round.length){
@@ -277,7 +282,10 @@
       else{$('qLabel').textContent='Adaptive Practice';$('qTitle').textContent='All caught up';$('qSub').textContent='No countries are due for review yet.';s.finished=true;$('quiz').classList.add('hidden');}
     }
     if(s.mode==='explore'&&globe){const dense=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Singapore']);globe.pointRadius(d=>dense.has(d.country)?.13:(d.region==='Oceania'?.34:.25));}
+    // Regional runs face the chosen region BEFORE a speedrun clock starts.
+    if(activeSection!=='intelligence' && activeSection!=='explore' && getRegion()!=='All'&&globe){globe.pointOfView({...places[getRegion()]},0)}
     activeSession=!s.finished&&s.round.length>0;
+    paint();
     runBtn.hidden=!activeSession;
     const timed=activeSession&&$('speedToggle').checked;
     $('timeStat').hidden=!timed;
@@ -307,7 +315,35 @@
     record.personalBests[key]=pb;store();
     $('result').innerHTML+=`<div class="record-line">Time: ${formatTime(ms)} · Fastest: ${formatTime(pb.fastest)}${percent===100?' · Perfect run!':''}</div>`;
   };
+  // Keep surrounding regions gray and non-interactive during regional challenges.
+  // Exposing the map mask only in practice modes keeps Explore/Intelligence global.
+  const countryPaint=paint, originalChoose=chooseCountry;
+  paint = function(){
+    if(!globe)return;
+    const mask=['countries','capitals'].includes(activeSection) && getRegion()!=='All';
+    if(!mask){countryPaint();return;}
+    const region=getRegion(), s=states;
+    globe.polygonCapColor(f=>{
+      const c=f.properties.country, inRegion=c&&byName[c]?.region===region;
+      if(!inRegion)return 'rgba(21,27,39,.88)';
+      if(s.answered&&s.current&&c===s.current.country)return 'rgba(66,231,178,.78)';
+      if(s.answered&&s.selected&&c===s.selected&&c!==s.current.country)return 'rgba(255,140,113,.65)';
+      if(hovered===f)return 'rgba(102,197,224,.45)';
+      return 'rgba(37,87,125,.24)';
+    }).polygonSideColor(()=>'rgba(25,63,90,.18)')
+      .polygonStrokeColor(f=>(byName[f.properties.country]?.region===region)
+        ?(ARID_COUNTRIES.has(f.properties.country)?'#18384b':'#acd4e5'):'#374352')
+      .polygonAltitude(f=>s.answered&&s.current&&f.properties.country===s.current.country?.015:.006);
+  };
+  chooseCountry = function(country){
+    if(['countries','capitals'].includes(activeSection)&&getRegion()!=='All' && states.mode!=='name'
+       && country&&byName[country]?.region!==getRegion()){
+      $('notice').textContent='Outside the selected region. Only highlighted countries count.';return;
+    }
+    originalChoose(country);
+  };
   tinyMarkers = function(){original.tinyMarkers();if(!globe)return;
+    if(['countries','capitals'].includes(activeSection)&&getRegion()!=='All'){globe.pointsData(DATA.filter(d=>d.pin&&d.region===getRegion()&&(states.mode==='find'||states.mode==='locate')&&!states.finished));}
     const crowded=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Singapore']);
     globe.pointRadius(d=>crowded.has(d.country)?.13:(d.region==='Oceania'?.34:.25));
   };
