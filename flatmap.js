@@ -1,4 +1,4 @@
-/* Atlas Quest V4.4 — proportionally projected flat map with inset study regions. */
+/* Atlas Quest V4.5 — fixed Seterra-style geography maps and nearest-dot selection. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -14,20 +14,20 @@
   };
   const region = () => $('region').value;
   const wrap = $('globeWrap');
-  let currentSection = 'capitals', flat = false, zoom = 1, offsetX = 0, offsetY = 0;
+  let currentSection = 'capitals', flat = false, zoom = 1;
   const css = document.createElement('style');
   css.textContent = `
     #flatMapShell{position:absolute;inset:0;display:none;z-index:1;background:linear-gradient(140deg,#11273e,#07192b);overflow:hidden}
     #globeWrap.flat-active #flatMapShell{display:block}
     #globeWrap.flat-active #globe{visibility:hidden;pointer-events:none}
     #globeWrap.flat-active #resetView{display:none!important}
-    #flatMapMain{height:100%;width:100%;touch-action:pan-y;display:block;cursor:grab}
-    #flatMapMain.dragging{cursor:grabbing}
+    #flatMapMain{height:100%;width:100%;touch-action:pan-y;display:block;cursor:default}
     .flat-land{stroke:#91afc1;stroke-width:.7;vector-effect:non-scaling-stroke;transition:fill .12s;cursor:pointer}
     .flat-land:hover{stroke:#e9ffff;stroke-width:1.8;filter:brightness(1.25)}
-    .flat-pin{fill:#ffcc73;stroke:#081c32;stroke-width:1;cursor:pointer}
-    .flat-pin:hover{fill:#f8ffff;stroke:#ffe69b;stroke-width:2}
-    .flat-inset{position:absolute;bottom:15px;width:min(30%,238px);height:176px;background:#0c243bbf;border:1px solid #7b9db8;border-radius:11px;overflow:hidden;box-shadow:0 8px 22px #0008}
+    .flat-pin{fill:#ffcc73;stroke:#081c32;stroke-width:.7;pointer-events:none}
+    .flat-pin.near{fill:#fff;stroke:#ffe69b;stroke-width:1.4}
+    .flat-land{cursor:pointer}
+    .flat-inset{position:absolute;bottom:15px;width:min(38%,340px);height:190px;background:#0c243bbf;border:1px solid #7b9db8;border-radius:11px;overflow:hidden;box-shadow:0 8px 22px #0008}
     .flat-inset.caribbean{left:14px}.flat-inset.oceania{right:14px}
     .flat-inset h4{margin:0;padding:7px 9px;font-size:11px;letter-spacing:.35px;font-weight:800;color:#e3f2ff;background:#092038}
     .flat-inset svg{width:100%;height:calc(100% - 29px);display:block}
@@ -41,7 +41,7 @@
     .flat-map-switch button[aria-pressed=true]{background:#48c8b6;color:#032625;border-color:#48c8b6}
     .side[data-section=intelligence] .flat-map-switch{display:none}
     #globeWrap.flat-active #loading{display:none!important}
-    @media(max-width:700px){.flat-inset{width:37%;height:123px;bottom:14px}.flat-inset h4{font-size:10px;padding:5px}.flat-inset svg{height:calc(100% - 24px)}#flatZoom{top:8px;right:8px;bottom:auto}#flatMapLabel{font-size:10px}}
+    @media(max-width:700px){.flat-inset{width:42%;height:136px;bottom:14px}.flat-inset h4{font-size:10px;padding:5px}.flat-inset svg{height:calc(100% - 24px)}#flatZoom{top:8px;right:8px;bottom:auto}#flatMapLabel{font-size:10px}}
   `;document.head.appendChild(css);
   const menu = document.createElement('div');menu.className='flat-map-switch';
   menu.innerHTML='<label>Geography map view</label><div class="flat-buttons"><button type="button" data-view="globe" aria-pressed="true">3D Globe</button><button type="button" data-view="flat" aria-pressed="false">2D Flat Map</button></div>';
@@ -97,38 +97,92 @@
     if(states.answered&&states.selected===name)return '#ec896f';
     return '#2b7792';
   }
-  function draw(svg,bounds,w,h,markerSize){
+  const areaMarkers=new WeakMap();
+  // Every microstate and small island remains in the study set. Countries
+  // already represented by polygons are normally selected by their shapes.
+  const hasPolygon=new Set(BORDERS.map(f=>f.properties?.country));
+  const insetRegion={'caribbean':'North America','oceania':'Oceania'};
+  function draw(svg,bounds,w,h,insetType=''){
     svg.replaceChildren();
-    // Insets receive their own fitted map, never an independently stretched image.
     const fit=frame(bounds,w,h,w<500?13:36);
     const base=make('rect');base.setAttribute('width',w);base.setAttribute('height',h);base.setAttribute('fill','#112b40');svg.appendChild(base);
+    const viewRegion=region(),hasInsetCaribbean=(viewRegion==='All'||viewRegion==='North America');
+    const hasInsetOceania=(viewRegion==='All'||viewRegion==='Oceania');
+    const regionForInset=insetRegion[insetType];
     for(const f of BORDERS){
       const c=f.properties?.country,d=byName[c];if(!d)continue;
-      const path=make('path'),str=shape(f.geometry,fit,w);if(!str)continue;
-      path.setAttribute('d',str);path.setAttribute('class','flat-land');
-      path.dataset.country=c;path.setAttribute('fill',color(c));
-      path.addEventListener('click',ev=>{ev.stopPropagation();chooseCountry(c)});
-      svg.appendChild(path);
+      const str=shape(f.geometry,fit,w);if(!str)continue;
+      const path=make('path');path.setAttribute('d',str);path.setAttribute('class','flat-land');
+      path.dataset.country=c;path.setAttribute('fill',color(c));svg.appendChild(path);
     }
-    for(const d of DATA.filter(x=>x.pin)){
+    const pins=[];
+    for(const d of DATA){
+      if(!d.pin || (insetType&&d.region!==regionForInset))continue;
+      if(!insetType){
+        // Seterra-style world layout: Caribbean and Pacific microstates are
+        // identified in their enlarged inset, not duplicated on the world map.
+        if(hasInsetCaribbean&&d.region==='North America')continue;
+        if(hasInsetOceania&&d.region==='Oceania')continue;
+        // With regional zoom, existing country polygons are easier to use.
+        // Keep pin only if the source data has no polygon in that region.
+        if(viewRegion!=='All'&&hasPolygon.has(d.country))continue;
+      }
       const [x,y]=project(d.lng,d.lat,fit);
       if(x<0||x>w||y<0||y>h)continue;
-      // Wider transparent touch area but a restrained visible circular dot.
-      // Mainland microstates receive a much tighter hit zone so clicking Spain
-      // near Andorra is unlikely to register as Andorra.
-      const dense=['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Malta','Singapore'];
-      const tight=dense.includes(d.country);
-      const hit=make('circle');hit.setAttribute('cx',x.toFixed(1));hit.setAttribute('cy',y.toFixed(1));
-      hit.setAttribute('r',tight?Math.min(markerSize+1,4.4):Math.max(markerSize+2,6.3));
-      hit.setAttribute('fill','transparent');hit.style.cursor='pointer';hit.dataset.country=d.country;
-      hit.addEventListener('click',ev=>{ev.stopPropagation();chooseCountry(d.country)});
-      svg.appendChild(hit);
+      // Markers are the same visually small size everywhere. No overlapping
+      // giant hit circles: hit-testing is based on nearest coordinates.
       const dot=make('circle');dot.setAttribute('cx',x.toFixed(1));dot.setAttribute('cy',y.toFixed(1));
-      dot.setAttribute('r',tight?Math.min(markerSize,2.4):Math.min(markerSize,3.5));
-      dot.classList.add('flat-pin');dot.dataset.country=d.country;
-      dot.addEventListener('click',ev=>{ev.stopPropagation();chooseCountry(d.country)});
-      svg.appendChild(dot);
+      dot.setAttribute('r',insetType?4.4:2.8);dot.classList.add('flat-pin');dot.dataset.country=d.country;
+      svg.appendChild(dot);pins.push({country:d.country,x,y,dot});
     }
+    areaMarkers.set(svg,{pins,fit,w,h,inset:!!insetType});
+    if(!svg.dataset.hitTesting){
+      svg.dataset.hitTesting='1';
+      svg.addEventListener('click',ev=>{
+        const target=ev.target.closest?.('path[data-country]');
+        const nearest=nearMarker(svg,ev);
+        const inInset=areaMarkers.get(svg)?.inset;
+        // Polygons win except at the actual tiny marker, while ocean/empty
+        // space allows a generous target using closest dot (not first hit).
+        const threshold=target?(inInset?7:4.2):(inInset?17:11);
+        if(nearest&&nearest.screenDistance<=threshold){
+          chooseCountry(nearest.country);return;
+        }
+        if(target)chooseCountry(target.dataset.country);
+      });
+      svg.addEventListener('pointermove',ev=>{
+        const nearest=nearMarker(svg,ev),record=areaMarkers.get(svg);
+        if(!record)return;
+        const active=nearest&&nearest.screenDistance<11?nearest:null;
+        for(const item of record.pins)item.dot.classList.toggle('near',active?.country===item.country);
+        svg.style.cursor=active?'pointer':'default';
+      });
+      svg.addEventListener('pointerleave',()=>{
+        const record=areaMarkers.get(svg);
+        for(const item of record?.pins||[])item.dot.classList.remove('near');
+      });
+    }
+  }
+  function nearMarker(svg,ev){
+    const r=areaMarkers.get(svg);if(!r?.pins.length)return null;
+    const ctm=svg.getScreenCTM?.();
+    if(!ctm)return null;
+    // getScreenCTM accounts for actual viewport size, insets, SVG aspect ratio
+    // and the world-map's optional 1.4x zoom.
+    const x=ev.clientX-ctm.e,y=ev.clientY-ctm.f;
+    const determinant=ctm.a*ctm.d-ctm.b*ctm.c;
+    if(Math.abs(determinant)<1e-9)return null;
+    const px=(ctm.d*x-ctm.c*y)/determinant,py=(-ctm.b*x+ctm.a*y)/determinant;
+    let nearest=null,distance=Infinity;
+    for(const item of r.pins){
+      const dx=item.x-px,dy=item.y-py;
+      // Real screen-pixel distance: nearest-target rules stay consistent even
+      // when the inset has a different size than the main map.
+      const sx=ctm.a*dx+ctm.c*dy,sy=ctm.b*dx+ctm.d*dy;
+      const d=Math.hypot(sx,sy);
+      if(d<distance){distance=d;nearest=item}
+    }
+    return nearest?{...nearest,screenDistance:distance}:null;
   }
   function inset(label,className,bounds){
     const box=document.createElement('div');box.className='flat-inset '+className;
@@ -136,7 +190,7 @@
     const svg=make('svg');svg.setAttribute('viewBox','0 0 400 245');
     svg.setAttribute('aria-label',label+' clickable inset');
     box.append(title,svg);shell.append(box);
-    draw(svg,bounds,400,245,5.3);
+    draw(svg,bounds,400,245,className);
     return box;
   }
   const regionLabel = {
@@ -144,19 +198,21 @@
     Africa:'Africa',Asia:'Asia',Europe:'Europe',
     'North America':'North America', 'South America':'South America',Oceania:'Oceania'
   };
+  // The world remains fixed like Seterra. Limited 1–1.4x zoom is available,
+  // but free panning is intentionally disabled.
   function boundsToViewBox(){
+    zoom=Math.max(1,Math.min(1.4,zoom));
     const w=1000/zoom,h=530/zoom;
-    const x=(1000-w)/2+offsetX,y=(530-h)/2+offsetY;
-    main.setAttribute('viewBox',`${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}`);
+    main.setAttribute('viewBox',`${((1000-w)/2).toFixed(2)} ${((530-h)/2).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}`);
   }
   function updateMap(){
     const r=region(),b=ranges[r]||ranges.All;
-    draw(main,b,1000,530,r==='All'?3.3:4);
+    draw(main,b,1000,530);
     shell.querySelectorAll('.flat-inset').forEach(el=>el.remove());
     if(r==='All'||r==='North America')inset('Caribbean islands','caribbean',[-88,8,-58,28]);
     if(r==='All'||r==='Oceania')inset('Oceania / Pacific islands','oceania',[110,-44,211,21]);
     $('flatMapLabel').textContent=regionLabel[r]||r;
-    zoom=1;offsetX=0;offsetY=0;boundsToViewBox();refreshColors();
+    zoom=1;boundsToViewBox();refreshColors();
   }
   function refreshColors(){
     shell.querySelectorAll('[data-country]').forEach(el=>{
@@ -192,12 +248,9 @@
   window.addEventListener('atlas:section',e=>{currentSection=e.detail.section;visibility()});
   const priorPaint=paint;
   paint=function(){priorPaint();if(flat)refreshColors()};
-  $('flatZoomIn').addEventListener('click',()=>{zoom=Math.min(6,zoom*1.45);boundsToViewBox()});
-  $('flatZoomOut').addEventListener('click',()=>{zoom=Math.max(1,zoom/1.45);if(zoom===1){offsetX=0;offsetY=0}boundsToViewBox()});
-  main.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(1,Math.min(6,zoom*(e.deltaY<0?1.17:.85)));boundsToViewBox()},{passive:false});
-  let pan=null;
-  main.addEventListener('pointerdown',e=>{if(e.target.closest('path,circle'))return;pan={x:e.clientX,y:e.clientY,startX:offsetX,startY:offsetY};main.setPointerCapture(e.pointerId);main.classList.add('dragging')});
-  main.addEventListener('pointermove',e=>{if(!pan)return;const rect=main.getBoundingClientRect();offsetX=pan.startX-(e.clientX-pan.x)*1000/(Math.max(rect.width,1)*zoom);offsetY=pan.startY-(e.clientY-pan.y)*530/(Math.max(rect.height,1)*zoom);boundsToViewBox()});
-  main.addEventListener('pointerup',()=>{pan=null;main.classList.remove('dragging')});
-  document.documentElement.dataset.atlasMap='flat-map-ready';
+  $('flatZoomIn').addEventListener('click',()=>{zoom=Math.min(1.4,zoom+.2);boundsToViewBox()});
+  $('flatZoomOut').addEventListener('click',()=>{zoom=Math.max(1,zoom-.2);boundsToViewBox()});
+  main.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(1,Math.min(1.4,zoom+(e.deltaY<0?.1:-.1)));boundsToViewBox()},{passive:false});
+  // Deliberately no pointer drag handler: 2D navigation stays stable.
+  document.documentElement.dataset.atlasMap='seterra-quiz-map-v4.5';
 })();
