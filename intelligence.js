@@ -91,7 +91,7 @@
   const sourceLink = (url,title) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(title)} ↗</a>`;
   const iso3 = country => String(country?.iso3 || '').toUpperCase();
   const orgMember = (key,country) => key==='au' ? country.region==='Africa' : S[key].members.split(' ').includes(iso3(country));
-  let currentSection='capitals',currentView='profile',currentLayer='plain',selected=null,pendingToken=0;
+  let currentSection='capitals',currentView='profile',currentLayer='plain',selected=null,layerToken=0,panelToken=0;
   let wbCache=new Map(),wbPending=new Map(),geoPaint=paint;
   let visibleWB=null;
   let conflict2025=null,conflictRequest=null;
@@ -434,7 +434,7 @@
   }
   paint=function(){if(currentSection==='intelligence')renderLayer();else geoPaint();};
   async function changeLayer(layer=currentLayer){
-    currentLayer=layer;visibleWB=null;pendingToken++;const token=pendingToken;
+    currentLayer=layer;visibleWB=null;layerToken++;panelToken++;const token=layerToken;
     $('intelConflictControls').hidden=currentLayer!=='brief:conflict';
     $('intelSourceHelp').textContent=currentLayer==='conflict:2025'
       ? '2025 event records from UCDP via Our World in Data. Historical observations, not a live conflict status or the same as the explained cases.'
@@ -442,12 +442,12 @@
     if(currentLayer==='conflict:2025'){
       conflict2025=null;updateLegend();renderLayer();
       const data=await readConflict2025();
-      if(token!==pendingToken||currentSection!=='intelligence')return;
+      if(token!==layerToken||currentSection!=='intelligence')return;
       conflict2025=data;
     }else if(currentLayer.startsWith('wb:')){
       updateLegend();renderLayer();
       const data=await readLayer(currentLayer.slice(3));
-      if(token!==pendingToken||currentSection!=='intelligence')return;
+      if(token!==layerToken||currentSection!=='intelligence')return;
       visibleWB=data;
     }
     updateLegend();renderLayer();
@@ -488,7 +488,7 @@
   }
   function metricLinks(){return sourceBlock([[urls.trade,'UN Comtrade: top products & trading partners'],[urls.wits,'WITS: trade visualization']]);}
   function renderTopic(){
-    if(!selected)return;const d=selected, t=$('intelTopic').value, token=++pendingToken;
+    if(!selected)return;const d=selected, t=$('intelTopic').value, token=++panelToken;
     const lead=`<p class="intel-country-lead"><span style="font-size:22px">${flagEmoji(d.iso2)}</span> ${esc(d.capital)} · ${esc(d.region)}</p>`;
     if(t==='overview'){
       $('intelPanelBody').innerHTML=lead+`<div class="intel-section"><h4>International organizations & alliances</h4>${orgTags(d)}<p>Verified organization snapshots, ${SOURCE_YEAR}. Membership does not imply identical positions on every policy.</p></div><div class="intel-section"><h4>Economic overview</h4><div id="intelMetricLoad">Loading World Bank indicators…</div></div>`;
@@ -520,7 +520,7 @@
     await Promise.all(keys.map(async(key,i)=>{
       let observation;
       try{observation=await readWB(iso,key)}catch(e){observation={loadFailed:true}}
-      if(token!==pendingToken||currentSection!=='intelligence'||iso3(selected)!==iso)return;
+      if(token!==panelToken||currentSection!=='intelligence'||iso3(selected)!==iso)return;
       const slot=$('intel-obs-'+i);if(!slot)return;
       slot.outerHTML=observation?.loadFailed
        ? `<div class="intel-metric"><small>${esc(WB[key].name)}</small><strong>Temporarily unavailable</strong><em>Network issue — reopen this country to retry</em></div>`
@@ -591,7 +591,7 @@
     currentSection=e.detail.section;setPrimary(currentSection);
     const active=currentSection==='intelligence';controls.hidden=!active;panel.hidden=true;
     document.querySelector('.stage').classList.toggle('intel-active',active);
-    if(!active){pendingToken++;selected=null;visibleWB=null;currentLayer='plain';geoPaint();return;}
+    if(!active){layerToken++;panelToken++;selected=null;visibleWB=null;currentLayer='plain';geoPaint();return;}
     $('qLabel').textContent='GLOBAL INTELLIGENCE';$('qTitle').textContent='Explore international relations and global trade';
     $('qSub').textContent='Click a country, or choose a map layer to explore global patterns.';
     currentView='profile';$('intelView').value='profile';$('intelTopic').value='overview';currentLayer='plain';
