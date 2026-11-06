@@ -61,6 +61,16 @@
     return kind==='conflict'?records.filter(x=>conflictMatches(x,$('intelConflictFilter')?.value||'all')):records;
   };
   const briefColor={conflict:'#ee745c',sanctions:'#c89b5c',territory:'#9d8de7'};
+  // War/confrontation, fragile ceasefire, and past intervention must not share
+  // one red 'active war' color. A country can have multiple associated cases.
+  const conflictShade=d=>{
+    const cases=filteredCases(d,'conflict');
+    if(!cases.length)return null;
+    if(cases.some(c=>c.type==='Interstate war'||c.type==='Interstate armed confrontation'||/Civil war|insurgenc|Organized criminal/i.test(c.type)))return '#ee745c';
+    if(cases.some(c=>c.type==='Cross-border military operations'))return '#e59150';
+    if(cases.some(c=>c.type==='Fragile ceasefire with continued hostilities'))return '#d8b464';
+    return '#6bbac8';
+  };
   const mapLayers = [['plain','No overlay'],['brief:conflict','Documented conflicts — country briefings'],['brief:sanctions','Selected sanctions programs & targets'],['brief:territory','Territorial disputes — involved countries'],['conflict:2025','Recorded armed conflict events (2025)'],...['nato','eu','brics','asean','g7'].map(k=>['org:'+k,'Alliance or group: '+S[k].name]),...['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])];
   // Interpretive maps prioritize patterns that are useful to compare. G20, AU,
   // total GDP/population and gross imports/exports stay in country profiles.
@@ -277,7 +287,7 @@
   function markerColor(d){
     if(currentLayer.startsWith('brief:')){
       const kind=currentLayer.slice(6);
-      return filteredCases(d,kind).length?briefColor[kind]:'#596574';
+      return kind==='conflict'?(conflictShade(d)||'#596574'):(filteredCases(d,kind).length?briefColor[kind]:'#596574');
     }
     if(currentLayer==='conflict:2025'){const n=conflict2025?.get(iso3(d));return Number.isFinite(n)?(n>0?'#ef675b':'#3f876e'):'#66717b'}
     if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#49e3be':'#596370';
@@ -295,7 +305,13 @@
       const note=type==='conflict'?'Includes direct wars, border operations, fragile ceasefires, organized crime and past interventions. Not all highlighted cases involve ongoing fighting; filter to distinguish them.':
         type==='sanctions'?'Includes country-focused restrictions and specific sanctioned actors; highlighting does NOT mean the entire country is embargoed.':
         'A highlighted country is associated with a claim; the whole national territory is not necessarily disputed.';
-      el.innerHTML=`<b>${title}</b><div class="intel-pair"><span class="intel-dot" style="background:${briefColor[type]}"></span>${DATA.filter(d=>filteredCases(d,type).length).length} countries represented by this selection</div><div class="intel-pair"><span class="intel-dot no"></span>Not covered by this curated layer</div><p>${note}</p><small>Research snapshot: ${INTEL_REVIEW_DATE}. Click highlighted countries for context and original sources. Not a live or exhaustive global database.</small>`;
+      const swatches=type==='conflict'?
+        '<div class="intel-pair"><span class="intel-dot" style="background:#ee745c"></span>Armed war or direct confrontation</div>'+
+        '<div class="intel-pair"><span class="intel-dot" style="background:#e59150"></span>Cross-border military operations</div>'+
+        '<div class="intel-pair"><span class="intel-dot" style="background:#d8b464"></span>Fragile ceasefire; recorded violence</div>'+
+        '<div class="intel-pair"><span class="intel-dot" style="background:#6bbac8"></span>Past intervention and diplomatic aftermath</div>':
+        '<div class="intel-pair"><span class="intel-dot" style="background:'+briefColor[type]+'"></span>Documented association</div>';
+      el.innerHTML=`<b>${title}</b><div><b>${DATA.filter(d=>filteredCases(d,type).length).length}</b> countries represented by this selection</div>`+swatches+`<div class="intel-pair"><span class="intel-dot no"></span>Not covered by this curated layer</div><p>${note}</p><small>Research snapshot: ${INTEL_REVIEW_DATE}. Click highlighted countries for context and original sources. Not a live or exhaustive global database.</small>`;
       return;
     }
     if(currentLayer==='plain'){el.innerHTML='Select a layer to compare countries on the globe.';return}
@@ -323,7 +339,7 @@
     const d=byName[f.properties.country];if(!d)return '#303b47';
     if(currentLayer.startsWith('brief:')){
       const type=currentLayer.slice(6);
-      return filteredCases(d,type).length?briefColor[type]:'#344252';
+      return type==='conflict'?(conflictShade(d)||'#344252'):(filteredCases(d,type).length?briefColor[type]:'#344252');
     }
     if(currentLayer==='conflict:2025'){const n=conflict2025?.get(iso3(d));return Number.isFinite(n)?(n>0?'#ef675b':'#345a4c'):'#3e4a58'}
     if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#35cdae':'#344253';
@@ -340,7 +356,7 @@
     const name=esc(d.country);
     if(currentLayer.startsWith('brief:')){
       const type=currentLayer.slice(6),items=filteredCases(d,type);
-      return `<div style="padding:8px"><b>${name}</b><br>${items.length?esc(items[0].title||items[0].issuer||'Documented case'):'Not included in this selected briefing set'}<br><small>${INTEL_REVIEW_DATE}</small></div>`;
+      return `<div style="padding:8px"><b>${name}</b><br>${items.length?esc(items[0].title||items[0].issuer||'Documented case'):'Not included in this selected briefing set'}<br>${items.length&&items[0].situation?esc(items[0].situation):''}<br><small>${INTEL_REVIEW_DATE}</small></div>`;
     }
     if(currentLayer==='conflict:2025'){
       const value=conflict2025?.get(iso3(d));
