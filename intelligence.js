@@ -30,7 +30,9 @@
     inequality:{name:'Gini index',indicator:'SI.POV.GINI',fmt:v=>v==null?'No data':v.toFixed(1),desc:'Gini index, higher means greater income inequality',source:'https://data.worldbank.org/indicator/SI.POV.GINI'},
     energy:{name:'Net energy imports',indicator:'EG.IMP.CONS.ZS',fmt:v=>v==null?'No data':v.toFixed(1)+'%',desc:'Net energy imports (% of energy use); negative means net exporter',source:'https://data.worldbank.org/indicator/EG.IMP.CONS.ZS'}
   };
-  const mapLayers = [['plain','Countries — no overlay'],...Object.keys(S).map(k=>['org:'+k,'Organization: '+S[k].name]),...Object.keys(WB).map(k=>['wb:'+k,WB[k].name])];
+  const mapLayers = [['plain','No overlay'],...['nato','eu','brics','asean','g7'].map(k=>['org:'+k,'Alliance or group: '+S[k].name]),...['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])];
+  // Interpretive maps prioritize patterns that are useful to compare. G20, AU,
+  // total GDP/population and gross imports/exports stay in country profiles.
   const sourceLink = (url,title) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(title)} ↗</a>`;
   const iso3 = country => String(country?.iso3 || '').toUpperCase();
   const orgMember = (key,country) => key==='au' ? country.region==='Africa' : S[key].members.split(' ').includes(iso3(country));
@@ -48,6 +50,15 @@
       <div id="intelLegend" class="intel-legend">Choose a layer to color the countries on the globe.</div></div>
     <p class="intel-caveat">Data includes different reporting years. Live indicators may be unavailable for some countries; blank areas do not mean zero. Sources are shown with each statistic.</p>`;
   side.insertBefore(controls,$('setupControls'));
+  // Give Global Intelligence its own full-width category instead of a fourth quiz tab.
+  const quizNav=$('modeNav'),intelTab=$('tab-intelligence');
+  if(quizNav&&intelTab){
+    const label=document.createElement('div');label.className='atlas-geo-group';label.textContent='GEOGRAPHY TRAINER';
+    quizNav.insertBefore(label,quizNav.firstChild);
+    const intelHeading=document.createElement('div');intelHeading.className='atlas-intel-group';intelHeading.textContent='GLOBAL INTELLIGENCE';
+    quizNav.insertBefore(intelHeading,intelTab);
+    intelTab.textContent='Open Global Intelligence';
+  }
   $('intelCountry').innerHTML='<option value="">Select a country…</option>'+DATA.map(d=>`<option value="${esc(d.country)}">${esc(d.country)}</option>`).join('');
   $('intelLayer').innerHTML=mapLayers.map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
   const panel=document.createElement('section');panel.id='intelPanel';panel.hidden=true;
@@ -55,6 +66,11 @@
   $('globeWrap').append(panel);
   const css=document.createElement('style');css.textContent=`
    #intelControls[hidden],#intelPanel[hidden],#intelMapSettings[hidden],#intelProfileSettings[hidden]{display:none!important}
+   #modeNav{grid-template-columns:repeat(3,minmax(0,1fr))}
+   #modeNav .atlas-geo-group,#modeNav .atlas-intel-group{grid-column:1/-1;font-size:10px;font-weight:850;color:#a9c8dd;letter-spacing:1.5px;padding:5px 4px 0}
+   #modeNav .atlas-intel-group{border-top:1px solid #35556c;margin-top:11px;padding-top:14px;color:#77f2d5}
+   #modeNav #tab-intelligence{grid-column:1/-1;background:#173847;border:1px solid #466d7e;min-height:39px;font-size:12px}
+   #modeNav #tab-intelligence[aria-selected=true]{background:#267c77;border-color:#77edda;color:#fff}
    .side[data-section="intelligence"] .sub,.side[data-section="intelligence"] .progress-section,.side[data-section="intelligence"] .divider,.side[data-section="intelligence"] .about,.side[data-section="intelligence"] #settingsToggle,.side[data-section="intelligence"] .quiz{display:none!important}
    .side[data-section="intelligence"] h1{display:none}
    .side[data-section="intelligence"] #intelControls{display:block}
@@ -65,7 +81,10 @@
    #intelControls select{width:100%;background:#071425;color:#eaf4ff;border:1px solid #395777;border-radius:9px;padding:11px;font-size:12px}
    #intelControls select:focus-visible{outline:2px solid #66e5c9}
    .intel-legend{border:1px solid #2e4963;background:#0b243c;padding:12px;border-radius:11px;margin:15px 0 18px;font-size:11px;color:#c0d6ea;line-height:1.6}
-   .intel-swatches{height:12px;background:linear-gradient(90deg,#1d3957,#327c8f,#57dcc2);border-radius:5px;margin:10px 0 5px}
+   .intel-swatches{height:12px;background:linear-gradient(90deg,#b54849,#d98b39,#d5c05b,#5cb8a9,#28856d);border-radius:5px;margin:10px 0 5px}
+   .intel-legend-bins{display:grid;gap:4px;margin:10px 0}
+   .intel-bin{display:flex;align-items:center;gap:8px;font-size:11px}
+   .intel-bin i{width:13px;height:13px;border-radius:2px;flex:0 0 auto}
    .intel-pair{display:flex;align-items:center;gap:8px;margin:6px 0}.intel-dot{height:11px;width:11px;border-radius:3px;background:#52cfb8;display:inline-block}.intel-dot.no{background:#253342}
    #intelPanel{position:absolute;z-index:7;top:14px;right:17px;bottom:15px;width:min(350px,48%);border:1px solid #35536d;background:rgba(8,22,39,.97);border-radius:14px;box-shadow:0 12px 38px #0007;overflow:auto;padding:18px 17px;color:#e9f5ff}
    .intel-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px;border-bottom:1px solid #2f4c62;padding-bottom:14px}
@@ -105,75 +124,141 @@
   function sourceBlock(items){return `<div class="intel-links">${items.map(([url,name])=>sourceLink(url,name)).join('')}</div>`}
   const wbMeta = (key,row) => `<div class="intel-metric"><small>${esc(WB[key].name)}</small><strong>${esc(WB[key].fmt(row?.value))}</strong><em>${row?.year?'Year '+row.year:'Data unavailable'}</em></div>`;
   const wbCacheKey=(country,metric)=>country+'|'+metric;
+  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   async function requestJSON(url){
-    const res=await fetch(url,{signal:AbortSignal.timeout?AbortSignal.timeout(11500):undefined});
-    if(!res.ok)throw Error('Data source unavailable');return res.json();
+    let error;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),attempt===0?9000:12500);
+        try{
+          const res=await fetch(url,{signal:controller.signal});
+          if(!res.ok)throw new Error('Data service returned HTTP '+res.status);
+          return await res.json();
+        }finally{clearTimeout(timer)}
+      }catch(e){error=e;if(attempt<2)await wait(450*(attempt+1))}
+    }
+    throw error||new Error('Data service temporarily unavailable');
   }
-  async function readWB(iso, key){
-    const ident=wbCacheKey(iso,key);if(wbCache.has(ident))return wbCache.get(ident);
-    if(wbPending.has(ident))return wbPending.get(ident);
-    const url=`https://api.worldbank.org/v2/country/${encodeURIComponent(iso)}/indicator/${WB[key].indicator}?format=json&mrnev=1&per_page=2`;
-    const pending=requestJSON(url).then(json=>{
-      const item=Array.isArray(json?.[1])?json[1].find(x=>typeof x.value==='number'):undefined;
-      const result=item?{value:item.value,year:item.date}:null;wbCache.set(ident,result);return result;
-    }).catch(()=>null).finally(()=>wbPending.delete(ident));wbPending.set(ident,pending);return pending;
-  }
+  // Cache the latest successful global series for each indicator. A country
+  // profile then reuses these series rather than issuing 4–6 separate requests
+  // every time a country is selected.
   async function readLayer(key){
     const ident='all|'+key;if(wbCache.has(ident))return wbCache.get(ident);
     if(wbPending.has(ident))return wbPending.get(ident);
-    const url=`https://api.worldbank.org/v2/country/all/indicator/${WB[key].indicator}?format=json&mrnev=1&per_page=500`;
-    const pending=requestJSON(url).then(json=>{
-      const map=new Map();for(const row of json?.[1]||[]){
-        if(typeof row.value==='number'&&row.countryiso3code&&(!map.has(row.countryiso3code)||+row.date>+map.get(row.countryiso3code).year))
-          map.set(row.countryiso3code,{value:row.value,year:row.date});
+    const url=`https://api.worldbank.org/v2/country/all/indicator/${WB[key].indicator}?format=json&mrnev=1&per_page=650`;
+    const pending=(async()=>{
+      const storedKey='atlasWB4:'+key;
+      try{
+        const cached=JSON.parse(localStorage.getItem(storedKey)||'null');
+        if(cached&&Date.now()-cached.saved<86400000&&Array.isArray(cached.values)){
+          const map=new Map(cached.values);wbCache.set(ident,map);return map;
+        }
+      }catch(e){}
+      try{
+        const json=await requestJSON(url);
+        const map=new Map();
+        for(const row of (json?.[1]||[])){
+          if(typeof row.value==='number'&&row.countryiso3code&&(!map.has(row.countryiso3code)||+row.date>+map.get(row.countryiso3code).year))
+            map.set(row.countryiso3code,{value:row.value,year:row.date});
+        }
+        if(!map.size)throw new Error('No valid series returned');
+        wbCache.set(ident,map);
+        try{localStorage.setItem(storedKey,JSON.stringify({saved:Date.now(),values:[...map]}))}catch(e){}
+        return map;
+      }catch(err){
+        const failed=new Map();failed.loadFailed=true;return failed;
       }
-      wbCache.set(ident,map);return map;
-    }).catch(()=>new Map()).finally(()=>wbPending.delete(ident));wbPending.set(ident,pending);return pending;
+    })().finally(()=>wbPending.delete(ident));
+    wbPending.set(ident,pending);return pending;
+  }
+  async function readWB(iso,key){
+    const series=await readLayer(key);
+    if(series.has(iso))return series.get(iso);
+    if(series.loadFailed)return {loadFailed:true};
+    // A valid empty result is different from a failed network request.
+    return null;
+  }
+  const COLORS=['#b54849','#d98b39','#d5c05b','#5cb8a9','#28856d'];
+  function distribution(){
+    if(!currentLayer.startsWith('wb:')||!visibleWB)return null;
+    const numbers=DATA.map(d=>visibleWB.get(iso3(d))?.value).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(!numbers.length)return null;
+    const at=q=>numbers[Math.min(numbers.length-1,Math.floor(q*(numbers.length-1)))];
+    const bounds=[at(.2),at(.4),at(.6),at(.8)];
+    return {numbers,bounds};
+  }
+  function categoryFor(n,stat){
+    if(!stat||!Number.isFinite(n))return -1;
+    return stat.bounds.findIndex(x=>n<=x)===-1?4:stat.bounds.findIndex(x=>n<=x);
+  }
+  function markerColor(d){
+    if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#49e3be':'#596370';
+    if(currentLayer.startsWith('wb:')){
+      const n=visibleWB?.get(iso3(d))?.value,idx=categoryFor(n,distribution());
+      return idx<0?'#65707a':COLORS[idx];
+    }
+    return '#ffc76d';
   }
   function updateLegend(){
-    const el=$('intelLegend');if(currentLayer==='plain'){el.innerHTML='No data layer selected. All countries are available to explore.';return}
+    const el=$('intelLegend');
+    if(currentLayer==='plain'){el.innerHTML='Select a layer to compare countries on the globe.';return}
     if(currentLayer.startsWith('org:')){
-      const key=currentLayer.slice(4),o=S[key];const count=DATA.filter(d=>orgMember(key,d)).length;
-      el.innerHTML=`<b>${esc(o.name)}</b><div class="intel-pair"><span class="intel-dot"></span>${count} study-set countries highlighted</div><div class="intel-pair"><span class="intel-dot no"></span>Not highlighted</div><small>${esc(o.detail)} · Reference: ${esc(SOURCE_YEAR)}</small><br>${sourceLink(o.source,'Official source')}`;
+      const key=currentLayer.slice(4),o=S[key],count=DATA.filter(d=>orgMember(key,d)).length;
+      el.innerHTML=`<b>${esc(o.name)}</b><div class="intel-pair"><span class="intel-dot"></span>${count} countries highlighted</div><div class="intel-pair"><span class="intel-dot no"></span>Other countries</div><small>${esc(o.detail)} · ${esc(SOURCE_YEAR)}</small><br>${sourceLink(o.source,'Official source')}`;
       return;
     }
-    const key=currentLayer.slice(3);const layer=WB[key];
-    const rows=visibleWB?Array.from(visibleWB.values()).map(x=>x.value).filter(Number.isFinite):[];
-    if(!rows.length){el.innerHTML=`<b>${esc(layer.name)}</b><p>Loading data… or no data available.</p>${sourceLink(layer.source,'World Bank series')}`;return}
-    const min=Math.min(...rows),max=Math.max(...rows);
-    el.innerHTML=`<b>${esc(layer.desc)}</b><div class="intel-swatches"></div><div style="display:flex;justify-content:space-between"><span>${esc(layer.fmt(min))}</span><span>${esc(layer.fmt(max))}</span></div><p>Data is the latest reported year per country, which may differ between countries. Gray means no data.</p>${sourceLink(layer.source,'World Bank series')}`;
+    const key=currentLayer.slice(3),layer=WB[key],stat=distribution();
+    if(!stat){
+      el.innerHTML=`<b>${esc(layer.name)}</b><p>${visibleWB?.loadFailed?'The data provider did not respond. Switch layers and retry.':'Loading latest available data…'}</p>${sourceLink(layer.source,'World Bank data')}`;return;
+    }
+    const groups=[[stat.numbers[0],stat.bounds[0]],[stat.bounds[0],stat.bounds[1]],[stat.bounds[1],stat.bounds[2]],[stat.bounds[2],stat.bounds[3]],[stat.bounds[3],stat.numbers.at(-1)]];
+    el.innerHTML=`<b>${esc(layer.desc)}</b><div class="intel-legend-bins">${groups.map(([a,b],i)=>`<div class="intel-bin"><i style="background:${COLORS[i]}"></i><span>${esc(layer.fmt(a))}–${esc(layer.fmt(b))}</span></div>`).join('')}</div><p>Five ranked groups (roughly 20% of reporting countries each). Hover over a country for its exact value, ranking and data year. Gray: no data.</p>${sourceLink(layer.source,'World Bank source')}`;
   }
   function layerColor(f){
-    const d=byName[f.properties.country];if(!d)return 'rgba(30,39,55,.84)';
-    if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'rgba(56,205,173,.72)':'rgba(29,44,61,.85)';
+    const d=byName[f.properties.country];if(!d)return '#303b47';
+    if(currentLayer.startsWith('org:'))return orgMember(currentLayer.slice(4),d)?'#35cdae':'#344253';
     if(currentLayer.startsWith('wb:')){
-      const val=visibleWB?.get(iso3(d))?.value;if(!Number.isFinite(val))return 'rgba(29,41,55,.83)';
-      const all=Array.from(visibleWB.values()).map(r=>r.value).filter(Number.isFinite);if(!all.length)return 'rgba(29,41,55,.83)';
-      let min=Math.min(...all),max=Math.max(...all);
-      // Logarithmic shading helps make wide-ranging GDP/population totals legible.
-      let v=val;if(min>=0&&max/min>100){v=Math.log1p(v);min=Math.log1p(min);max=Math.log1p(max)}
-      const t=max===min?.5:Math.max(0,Math.min(1,(v-min)/(max-min)));
-      const r=Math.round(29+t*62),g=Math.round(57+t*158),b=Math.round(85+t*115);
-      return `rgba(${r},${g},${b},.83)`;
+      const n=visibleWB?.get(iso3(d))?.value,idx=categoryFor(n,distribution());
+      return idx<0?'#3e4a58':COLORS[idx];
     }
-    if(selected?.country===d.country)return 'rgba(75,203,181,.65)';
-    if(hovered===f)return 'rgba(89,159,191,.43)';
+    if(selected?.country===d.country)return '#4bcbb5';
+    if(hovered===f)return '#528ea9';
     return 'rgba(37,87,125,.24)';
+  }
+  function polygonTooltip(f){
+    const d=byName[f.properties.country];if(!d)return'';
+    const name=esc(d.country);
+    if(currentLayer.startsWith('wb:')){
+      const key=currentLayer.slice(3),metric=visibleWB?.get(iso3(d)),stat=distribution();
+      if(!metric)return`<div style="padding:7px">${name}<br>No reported data</div>`;
+      const rank=stat?stat.numbers.filter(x=>x>metric.value).length+1:null;
+      return`<div style="padding:7px"><b>${name}</b><br>${esc(WB[key].name)}: ${esc(WB[key].fmt(metric.value))}<br>Rank ${rank} of ${stat.numbers.length} · ${esc(metric.year)}</div>`;
+    }
+    if(currentLayer.startsWith('org:'))return`<div style="padding:7px"><b>${name}</b><br>${orgMember(currentLayer.slice(4),d)?'Member':'Not a member'}</div>`;
+    return name;
   }
   function renderLayer(){
     if(!globe)return;
     globe.polygonCapColor(layerColor)
-     .polygonStrokeColor(()=>currentLayer==='plain'?'#92b7ce':'#7c9aab')
+     .polygonLabel(polygonTooltip)
+     .polygonStrokeColor(()=>'#91a6b9')
      .polygonSideColor(()=>'rgba(25,63,90,.15)')
      .polygonAltitude(()=>.007);
+    // Microstates and small island pins use the same intelligence coloring
+    // as large-country polygons; yellow is reserved for the plain layer.
+    globe.pointsData(DATA.filter(d=>d.pin))
+     .pointColor(markerColor)
+     .pointLabel(d=>polygonTooltip({properties:{country:d.country}}))
+     .pointRadius(d=>['Andorra','Monaco','Vatican City','San Marino','Liechtenstein'].includes(d.country)?.16:.27);
   }
   paint=function(){if(currentSection==='intelligence')renderLayer();else geoPaint();};
   async function changeLayer(){
     currentLayer=$('intelLayer').value;visibleWB=null;pendingToken++;const token=pendingToken;
     if(currentLayer.startsWith('wb:')){
       updateLegend();renderLayer();
-      visibleWB=await readLayer(currentLayer.slice(3));
+      const data=await readLayer(currentLayer.slice(3));
       if(token!==pendingToken||currentSection!=='intelligence')return;
+      visibleWB=data;
     }
     updateLegend();renderLayer();
   }
@@ -202,10 +287,19 @@
     addMetrics(['military'],token);
   }
   async function addMetrics(keys,token){
-    const iso=iso3(selected);const result=await Promise.all(keys.map(k=>readWB(iso,k)));
-    if(token!==pendingToken||currentSection!=='intelligence')return;
-    const el=$('intelMetricLoad');if(!el)return;
-    el.innerHTML=`<div class="intel-metrics">${keys.map((k,i)=>wbMeta(k,result[i])).join('')}</div><span class="intel-source">World Bank Open Data, latest available observation per indicator (see years above). ${sourceLink(linkWorldBank(iso),'Country dataset')}</span>`;
+    // Update metric cards as the results arrive: slow indicators must not
+    // hold every other economic fact in a perpetual loading state.
+    const iso=iso3(selected),host=$('intelMetricLoad');if(!host)return;
+    host.innerHTML='<div class="intel-metrics">'+keys.map((key,i)=>`<div class="intel-metric" id="intel-obs-${i}"><small>${esc(WB[key].name)}</small><strong>Loading…</strong></div>`).join('')+'</div><span class="intel-source">World Bank Open Data · each value displays its own reporting year. '+sourceLink(linkWorldBank(iso),'Country dataset')+'</span>';
+    await Promise.all(keys.map(async(key,i)=>{
+      let observation;
+      try{observation=await readWB(iso,key)}catch(e){observation={loadFailed:true}}
+      if(token!==pendingToken||currentSection!=='intelligence'||iso3(selected)!==iso)return;
+      const slot=$('intel-obs-'+i);if(!slot)return;
+      slot.outerHTML=observation?.loadFailed
+       ? `<div class="intel-metric"><small>${esc(WB[key].name)}</small><strong>Temporarily unavailable</strong><em>Network issue — reopen this country to retry</em></div>`
+       : wbMeta(key,observation);
+    }));
   }
   function refreshView(){
     currentView=$('intelView').value;
