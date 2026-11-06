@@ -1,7 +1,7 @@
 /* Atlas Quest V4 – additive enhancements to V3. Existing globe, questions and country data remain intact. */
 (() => {
   'use strict';
-  const VERSION = '4.2.0-preview';
+  const VERSION = '4.4.0-preview';
   const DAY = 86400000;
   const original = { start, ask, finish, complete, store, switchMode, updateStats, showCountry, tinyMarkers };
   const safe = (value) => escapeHTML(String(value ?? ''));
@@ -37,6 +37,7 @@
     .mode-configuration .field{margin:11px 0}
     #modeSectionHint{font-size:11px;line-height:1.5;color:#a8c6dc;margin:0 1px 8px}
     .side #legacyModeField,.side #reviewTypeWrap,.side #adaptiveToggleWrap,.side #adaptiveHelp{display:none!important}
+    .side[data-section="intelligence"] #start{display:none!important}
     .side[data-section="intelligence"] #setupControls,.side[data-section="intelligence"] #settingsToggle,.side[data-section="intelligence"] .setup-line,.side[data-section="intelligence"] .progress-section,.side[data-section="intelligence"] .about,.side[data-section="intelligence"] .divider{display:none!important}
     .side[data-section="explore"] #practiceControls,.side[data-section="explore"] #capitalKindField,.side[data-section="explore"] #speedToggleWrap,.side[data-section="explore"] #flagToggleWrap,.side[data-section="explore"] #start{display:none!important}
     .side[data-section="countries"] #capitalKindField{display:none!important}
@@ -49,6 +50,10 @@
     #settingsToggle:hover,#settingsToggle:focus-visible{border-color:var(--mint);outline:none}
     .config-wrap{overflow:visible}
     .side.is-playing .config-wrap{display:none}
+    .side #start.v4-start-always{display:block;flex:none;margin:11px 0 16px}
+    .side.is-playing #start.v4-start-always{display:block;margin:8px 0 12px}
+    .side[data-section="explore"] #start.v4-start-always{display:none!important}
+    .side[data-section="intelligence"] #start.v4-start-always{display:none!important}
     .side.is-playing .sub{display:none}
     .side.is-playing h1{font-size:23px;margin-bottom:10px}
     .side.is-playing .about{display:none}
@@ -122,6 +127,10 @@
       <select id="practiceStyle"><option value="standard">Standard — every country once</option><option value="missed">Missed answers — focused review</option><option value="adaptive">Adaptive — prioritize difficult answers</option></select>
       <p class="v4-help" id="practiceHelp">Study each country once, in a random order.</p></div>`;
   config.insertBefore(modeConfig,config.querySelector('.fields'));
+  // Keep Start / Restart OUTSIDE the collapsible setup panel.
+  // It remains usable with settings closed during a long challenge.
+  config.insertAdjacentElement('afterend',$('start'));
+  $('start').classList.add('v4-start-always');
   // Challenge type and region remain together in their respective section.
   $('flagToggleWrap').querySelector('small').textContent='Available when identifying a country from its capital.';
   const track = document.createElement('div');track.className='v4-progress';track.setAttribute('aria-hidden','true');track.innerHTML='<span id="trackFill"></span>';
@@ -223,7 +232,7 @@
       'Practice unmastered and due countries first; missed answers may repeat later in untimed sessions.';
     const count=record.missed[quiz].filter(c=>getRegion()==='All'||byName[c]?.region===getRegion()).length;
     $('missedSummary').textContent=activeSection==='explore'?'':`${count} saved ${activeSection==='countries'?'country':'capital'} answer${count===1?'':'s'} to review in this region.`;
-    $('start').textContent=style==='missed'?'Review missed answers':style==='adaptive'?'Start adaptive practice':'Start challenge';
+    $('start').textContent=activeSession?'Restart run':style==='missed'?'Review missed answers':style==='adaptive'?'Start adaptive practice':'Start challenge';
     $('flagToggleWrap').classList.toggle('hidden',activeSection!=='capitals'||quiz!=='find');
     $('speedToggleWrap').classList.toggle('hidden',activeSection==='explore');
   }
@@ -281,7 +290,7 @@
       if(s.round.length){ask();$('qLabel').textContent=`Adaptive ${activeSection==='countries'?'Country':'Capital'} Practice · ${s.region==='All'?'World':s.region}`;}
       else{$('qLabel').textContent='Adaptive Practice';$('qTitle').textContent='All caught up';$('qSub').textContent='No countries are due for review yet.';s.finished=true;$('quiz').classList.add('hidden');}
     }
-    if(s.mode==='explore'&&globe){const dense=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Singapore']);globe.pointRadius(d=>dense.has(d.country)?.13:(d.region==='Oceania'?.34:.25));}
+    if(s.mode==='explore'&&globe){tinyMarkers();}
     // Regional runs face the chosen region BEFORE a speedrun clock starts.
     if(activeSection!=='intelligence' && activeSection!=='explore' && getRegion()!=='All'&&globe){globe.pointOfView({...places[getRegion()]},0)}
     activeSession=!s.finished&&s.round.length>0;
@@ -291,6 +300,7 @@
     $('timeStat').hidden=!timed;
     if(timed)startClock();
     if(activeSession)setExpanded(false);else setExpanded(true);
+    refreshPracticeText();
     badgeUpdate();updateMasterySummary();updateVisualProgress();
   };
   finish = function(correct,message,selected=null,opts={}){
@@ -320,6 +330,11 @@
   const countryPaint=paint, originalChoose=chooseCountry;
   paint = function(){
     if(!globe)return;
+    // No quiz hover may reveal country names, including large polygons.
+    // Explore shows names; intelligence overrides the tooltip with its own
+    // data-rich, attributed hover labels in intelligence.js.
+    globe.polygonLabel(f=>activeSection==='explore'?escapeHTML(f.properties.country||''):'Select country')
+         .pointLabel(d=>activeSection==='explore'?escapeHTML(d.country):'Select country');
     const mask=['countries','capitals'].includes(activeSection) && getRegion()!=='All';
     if(!mask){countryPaint();return;}
     const region=getRegion(), s=states;
@@ -344,8 +359,15 @@
   };
   tinyMarkers = function(){original.tinyMarkers();if(!globe)return;
     if(['countries','capitals'].includes(activeSection)&&getRegion()!=='All'){globe.pointsData(DATA.filter(d=>d.pin&&d.region===getRegion()&&(states.mode==='find'||states.mode==='locate')&&!states.finished));}
-    const crowded=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Singapore']);
-    globe.pointRadius(d=>crowded.has(d.country)?.13:(d.region==='Oceania'?.34:.25));
+    // Use low-profile circular dots instead of tall pins. The dots are
+    // slightly wider than V3 but remain restrained around Spain/Andorra,
+    // France/Monaco, and other adjacent mainland countries.
+    const crowded=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg']);
+    globe.pointRadius(d=>crowded.has(d.country)?.18:(d.country==='Malta'||d.country==='Singapore'?.22:.32))
+         .pointAltitude(()=>.0015)
+         .pointResolution(20)
+         .pointLabel(d=>activeSection==='explore'?escapeHTML(d.country):'Select country')
+         .pointColor(d=>states.answered&&states.current?.country===d.country?'#60f0c8':'#ffcb75');
   };
   showCountry = function(country){
     original.showCountry(country);
