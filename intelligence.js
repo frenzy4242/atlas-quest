@@ -71,7 +71,14 @@
     if(cases.some(c=>c.type==='Fragile ceasefire with continued hostilities'))return '#d8b464';
     return '#6bbac8';
   };
-  const mapLayers = [['plain','No overlay'],['brief:conflict','Documented conflicts — country briefings'],['brief:sanctions','Selected sanctions programs & targets'],['brief:territory','Territorial disputes — involved countries'],['conflict:2025','Recorded armed conflict events (2025)'],...['nato','eu','brics','asean','g7'].map(k=>['org:'+k,'Alliance or group: '+S[k].name]),...['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])];
+    // One subject per tab; the two conflict datasets live together as a source choice.
+  const MAP_SUBJECTS={
+    conflicts:{title:'Conflicts & Security',options:[]},
+    sanctions:{title:'Sanctions & Disputes',options:[['brief:sanctions','Sanctions & restrictions'],['brief:territory','Territorial disputes']]},
+    alliances:{title:'Alliances',options:['nato','eu','brics','asean','g7'].map(k=>['org:'+k,S[k].name])},
+    economics:{title:'Economics',options:['gdppc','growth','military','inequality','energy'].map(k=>['wb:'+k,WB[k].name])}
+  };
+  let mapSubject='conflicts',conflictSource='brief:conflict';
   // Interpretive maps prioritize patterns that are useful to compare. G20, AU,
   // total GDP/population and gross imports/exports stay in country profiles.
   const sourceLink = (url,title) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(title)} ↗</a>`;
@@ -85,10 +92,32 @@
   const controls=document.createElement('section');controls.id='intelControls';controls.hidden=true;
   controls.innerHTML=`<div class="intel-kicker">GLOBAL INTELLIGENCE</div>
     <h2>World intelligence</h2><p class="intel-intro">Explore geopolitical relationships and economic indicators. Select a country or compare global patterns.</p>
-    <label class="intel-lbl" for="intelView">View</label><select id="intelView"><option value="profile">Country view</option><option value="map">Global map view</option></select>
+    <div class="intel-view-switch" role="group" aria-label="Intelligence workspace">
+      <button type="button" data-intel-view="profile" aria-pressed="true">Country profiles</button>
+      <button type="button" data-intel-view="map" aria-pressed="false">Explore world maps</button>
+    </div>
+    <select id="intelView" hidden aria-label="Intelligence workspace"><option value="profile">Country profiles</option><option value="map">World maps</option></select>
     <div id="intelProfileSettings"><label class="intel-lbl" for="intelCountry">Select a country</label><select id="intelCountry"></select>
       <label class="intel-lbl" for="intelTopic">Profile topic</label><select id="intelTopic"><option value="overview">Overview</option><option value="politics">Geopolitics & relations</option><option value="economy">Economics & trade</option><option value="security">Security & conflicts</option></select></div>
-    <div id="intelMapSettings" hidden><label class="intel-lbl" for="intelLayer">Map layer</label><select id="intelLayer"></select>
+    <div id="intelMapSettings" hidden>
+      <p class="intel-subtitle">Select a subject</p>
+      <div id="intelThemeNav" class="intel-theme-grid" role="group" aria-label="World map subjects">
+        <button type="button" data-intel-subject="conflicts" aria-pressed="true">⚔ Conflicts & Security</button>
+        <button type="button" data-intel-subject="sanctions" aria-pressed="false">⚖ Sanctions & Disputes</button>
+        <button type="button" data-intel-subject="alliances" aria-pressed="false">◎ Alliances</button>
+        <button type="button" data-intel-subject="economics" aria-pressed="false">▥ Economics</button>
+      </div>
+      <div id="intelLayerWrap" hidden>
+        <label class="intel-lbl" id="intelLayerLabel" for="intelLayer">Focus</label><select id="intelLayer"></select>
+      </div>
+      <div id="intelConflictSourceWrap">
+        <label class="intel-lbl">Information source</label>
+        <div class="intel-source-switch" role="group" aria-label="Conflict information source">
+          <button type="button" data-intel-source="brief:conflict" aria-pressed="true">Explained cases</button>
+          <button type="button" data-intel-source="conflict:2025" aria-pressed="false">2025 event data</button>
+        </div>
+        <p class="intel-caveat" id="intelSourceHelp">Explained cases are curated country briefings, reviewed November 6, 2026. Not a live feed.</p>
+      </div>
       <div id="intelConflictControls" hidden><label class="intel-lbl" for="intelConflictFilter">Conflict classification</label><select id="intelConflictFilter">
         <option value="all">All documented situations</option>
         <option value="interstate">Interstate wars</option>
@@ -118,12 +147,23 @@
     quizNav.hidden=isIntel;
   }
   $('intelCountry').innerHTML='<option value="">Select a country…</option>'+DATA.map(d=>`<option value="${esc(d.country)}">${esc(d.country)}</option>`).join('');
-  $('intelLayer').innerHTML=mapLayers.map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
+  // Theme-specific options are created only when the relevant subject is
+  // selected, rather than mixing metrics, organizations, disputes and wars.
+
   const panel=document.createElement('section');panel.id='intelPanel';panel.hidden=true;
   panel.innerHTML=`<div class="intel-panel-head"><div><small>COUNTRY INTELLIGENCE</small><h3 id="intelTitle">Select a country</h3></div><button type="button" id="intelClose" aria-label="Close intelligence panel">×</button></div><div id="intelPanelBody">Click a country on the globe, or choose one from the menu, to view its profile.</div>`;
   $('globeWrap').append(panel);
   const css=document.createElement('style');css.textContent=`
-   #intelControls[hidden],#intelPanel[hidden],#intelMapSettings[hidden],#intelProfileSettings[hidden]{display:none!important}
+   #intelControls[hidden],#intelPanel[hidden],#intelMapSettings[hidden],#intelProfileSettings[hidden],#intelLayerWrap[hidden],#intelConflictSourceWrap[hidden],#intelConflictControls[hidden]{display:none!important}
+   .intel-view-switch,.intel-source-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0 16px}
+   .intel-view-switch button,.intel-source-switch button{background:#10283f;color:#d1e4f0;border:1px solid #3d6278;border-radius:9px;padding:11px 7px;font-weight:800;font-size:12px;cursor:pointer}
+   .intel-view-switch button[aria-pressed=true],.intel-source-switch button[aria-pressed=true]{background:#24665e;color:#effffb;border-color:#6ce3ca}
+   .intel-theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}
+   .intel-theme-grid button{min-height:52px;padding:8px 6px;border:1px solid #3d6278;background:#0c263c;color:#c4dae9;border-radius:10px;font-size:11px;font-weight:800;text-align:center;cursor:pointer}
+   .intel-theme-grid button[aria-pressed=true]{border-color:#6ce3ca;background:#1e5151;color:#e5fff8}
+   .intel-subtitle{font-size:11px;color:#bce4e9;text-transform:uppercase;font-weight:850;letter-spacing:1.1px;margin:14px 0 0}
+   #intelSourceHelp{font-size:11px;margin:3px 0 10px}
+   .intel-view-switch button:focus-visible,.intel-theme-grid button:focus-visible,.intel-source-switch button:focus-visible{outline:2px solid #8ef7e2;outline-offset:2px}
    #modeNav{grid-template-columns:repeat(3,minmax(0,1fr))}
    #modeNav[hidden],#modeNav #tab-intelligence{display:none!important}
    .atlas-primary-nav{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:4px 0 13px}
@@ -386,9 +426,12 @@
      .pointRadius(d=>['Andorra','Monaco','Vatican City','San Marino','Liechtenstein'].includes(d.country)?.16:.27);
   }
   paint=function(){if(currentSection==='intelligence')renderLayer();else geoPaint();};
-  async function changeLayer(){
-    currentLayer=$('intelLayer').value;visibleWB=null;pendingToken++;const token=pendingToken;
+  async function changeLayer(layer=currentLayer){
+    currentLayer=layer;visibleWB=null;pendingToken++;const token=pendingToken;
     $('intelConflictControls').hidden=currentLayer!=='brief:conflict';
+    $('intelSourceHelp').textContent=currentLayer==='conflict:2025'
+      ? '2025 event records from UCDP via Our World in Data. Historical observations, not a live conflict status or the same as the explained cases.'
+      : 'Curated country briefings reviewed November 6, 2026. Coverage is selective and does not imply unhighlighted countries are peaceful.';
     if(currentLayer==='conflict:2025'){
       conflict2025=null;updateLegend();renderLayer();
       const data=await readConflict2025();
@@ -407,8 +450,8 @@
     selected=d;panel.hidden=false;$('intelTitle').textContent=d.country;$('intelCountry').value=d.country;
     // Clicking the geopolitics map should open its actual briefing, not the
     // default GDP overview. The data remains directly inside Atlas Quest.
-    if(currentView==='map'&&currentLayer.startsWith('brief:')){
-      $('intelTopic').value=currentLayer==='brief:territory'?'politics':'security';
+    if(currentView==='map'&&(currentLayer.startsWith('brief:')||currentLayer==='conflict:2025')){
+      $('intelTopic').value=currentLayer==='brief:territory'||currentLayer==='brief:sanctions'?'politics':'security';
     }
     renderTopic();renderLayer();
   }
@@ -466,18 +509,55 @@
        : wbMeta(key,observation);
     }));
   }
+  function setMapSubject(subject){
+    if(!MAP_SUBJECTS[subject])return;
+    mapSubject=subject;
+    $('intelThemeNav').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.intelSubject===subject)));
+    const isConflict=subject==='conflicts';
+    $('intelConflictSourceWrap').hidden=!isConflict;
+    $('intelLayerWrap').hidden=isConflict;
+    $('intelConflictControls').hidden=!isConflict||conflictSource!=='brief:conflict';
+    if(isConflict){
+      document.querySelectorAll('[data-intel-source]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.intelSource===conflictSource)));
+      changeLayer(conflictSource);
+    }else{
+      const obj=MAP_SUBJECTS[subject];
+      $('intelLayerLabel').textContent=subject==='sanctions'?'Choose a focus':subject==='alliances'?'Organization':'Economic indicator';
+      const select=$('intelLayer'),previous=select.value;
+      select.replaceChildren(...obj.options.map(([value,label])=>{const el=document.createElement('option');el.value=value;el.textContent=label;return el}));
+      select.value=obj.options.some(([value])=>value===previous)?previous:obj.options[0][0];
+      changeLayer(select.value);
+    }
+  }
   function refreshView(){
     currentView=$('intelView').value;
     $('intelProfileSettings').hidden=currentView!=='profile';$('intelMapSettings').hidden=currentView!=='map';
     if(currentView==='profile'){$('intelLayer').value='plain';currentLayer='plain';visibleWB=null;updateLegend();renderLayer();if(selected)showPanel(selected);}
-    else{panel.hidden=true;changeLayer();}
+    else{panel.hidden=true;setMapSubject(mapSubject);}
   }
+  document.querySelectorAll('[data-intel-view]').forEach(button=>button.addEventListener('click',()=>{
+    const view=button.dataset.intelView;
+    if($('intelView').value===view)return;
+    $('intelView').value=view;
+    document.querySelectorAll('[data-intel-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.intelView===view)));
+    refreshView();
+  }));
+  $('intelThemeNav').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-intel-subject]');
+    if(b)setMapSubject(b.dataset.intelSubject);
+  });
+  document.querySelectorAll('[data-intel-source]').forEach(button=>button.addEventListener('click',()=>{
+    conflictSource=button.dataset.intelSource;
+    document.querySelectorAll('[data-intel-source]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    $('intelConflictControls').hidden=conflictSource!=='brief:conflict';
+    changeLayer(conflictSource);
+  }));
   $('intelView').addEventListener('change',refreshView);
   $('intelTopic').addEventListener('change',renderTopic);
   $('intelCountry').addEventListener('change',()=>{const d=byName[$('intelCountry').value];if(!d)return;
     if(globe)globe.pointOfView({lat:d.lat,lng:d.lng,altitude:1.55},650);showPanel(d);
   });
-  $('intelLayer').addEventListener('change',changeLayer);
+  $('intelLayer').addEventListener('change',()=>changeLayer($('intelLayer').value));
   $('intelConflictFilter').addEventListener('change',()=>{if(currentLayer==='brief:conflict'){updateLegend();renderLayer()}});
   // Returning to the global map with conflict layer selected keeps its filter.
 
@@ -495,7 +575,8 @@
     if(!active){pendingToken++;selected=null;visibleWB=null;currentLayer='plain';geoPaint();return;}
     $('qLabel').textContent='GLOBAL INTELLIGENCE';$('qTitle').textContent='Explore international relations and global trade';
     $('qSub').textContent='Click a country, or choose a map layer to explore global patterns.';
-    currentView='profile';$('intelView').value='profile';$('intelTopic').value='overview';currentLayer='plain';$('intelLayer').value='plain';
+    currentView='profile';$('intelView').value='profile';$('intelTopic').value='overview';currentLayer='plain';
+    document.querySelectorAll('[data-intel-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.intelView==='profile')));
     refreshView();
     // Selection in intelligence mode is never constrained by geography practice regions.
     states.region='All';if(globe)globe.pointOfView(places.All,450);
