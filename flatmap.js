@@ -219,7 +219,7 @@
       const name=el.dataset.country,d=byName[name];
       if(el.tagName.toLowerCase()==='path')el.setAttribute('fill',color(name));
       else {
-        el.style.fill=!d||!selectable(d)?'#53616e':states.answered&&states.current?.country===name?'#50f5c0':'#fbc76d';
+        el.setAttribute('fill',!d||!selectable(d)?'#53616e':states.answered&&states.current?.country===name?'#50f5c0':'#fbc76d');
         el.style.opacity=d&&selectable(d)?'1':'.4';
       }
       if(currentSection==='explore')el.setAttribute('aria-label',name);
