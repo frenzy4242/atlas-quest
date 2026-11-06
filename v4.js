@@ -1,7 +1,7 @@
 /* Atlas Quest V4 – additive enhancements to V3. Existing globe, questions and country data remain intact. */
 (() => {
   'use strict';
-  const VERSION = '4.0.0-preview';
+  const VERSION = '4.1.0-preview';
   const DAY = 86400000;
   const original = { start, ask, finish, complete, store, switchMode, updateStats, showCountry, tinyMarkers };
   const safe = (value) => escapeHTML(String(value ?? ''));
@@ -11,6 +11,8 @@
   let toastTimer = null, studyRequest = 0;
   let repeatCount = {};
   let expanded = true;
+  let activeSection = 'capitals';
+  let activeSession = false;
   const atlasDataCache = new Map();
 
   // Keep the existing v3 browser storage, so prior scores and missed answers survive the upgrade.
@@ -21,7 +23,25 @@
 
   const css = document.createElement('style');
   css.textContent = `
-    .tag[hidden]{display:none!important}
+    .tag[hidden],#timeStat[hidden],#resetRun[hidden]{display:none!important}
+    .mode-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:7px 0 13px;padding:5px;border:1px solid #28435e;border-radius:13px;background:#0a182c}
+    .mode-tab{min-width:0;border:1px solid transparent;color:#b7cce1;background:transparent;border-radius:9px;padding:11px 5px;font-size:12px;font-weight:750;transition:background .13s ease,color .13s ease}
+    .mode-tab[aria-selected="true"]{background:#21465b;color:#eafff8;border-color:#418a8a}
+    .mode-tab:focus-visible,.mode-tab:hover{outline:2px solid #70dfce;outline-offset:-2px}
+    .setup-line{display:flex;align-items:stretch;gap:8px}
+    .setup-line #settingsToggle{flex:1}
+    .setup-line #resetRun{flex:none;margin:4px 0 9px;border:1px solid #72617b;color:#ffe1db;background:#302438;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:700}
+    .setup-line #resetRun:hover{border-color:#ffb5ac}
+    .mode-configuration{margin-top:8px}
+    .mode-configuration .field{margin:11px 0}
+    #modeSectionHint{font-size:11px;line-height:1.5;color:#a8c6dc;margin:0 1px 8px}
+    .side #legacyModeField,.side #reviewTypeWrap,.side #adaptiveToggleWrap,.side #adaptiveHelp{display:none!important}
+    .side[data-section="explore"] #practiceControls,.side[data-section="explore"] #capitalKindField,.side[data-section="explore"] #speedToggleWrap,.side[data-section="explore"] #flagToggleWrap,.side[data-section="explore"] #start{display:none!important}
+    .side[data-section="countries"] #capitalKindField{display:none!important}
+    .side[data-section="explore"] #missedSummary{display:none}
+    #timeStat{white-space:nowrap}
+    .stats:empty{display:none}
+    @media(max-width:460px){.mode-tab{font-size:11px;padding:10px 3px}.setup-line #resetRun{padding:8px;font-size:10px}}
     .side{display:flex;flex-direction:column;gap:0}
     #settingsToggle{width:100%;display:flex;justify-content:space-between;align-items:center;margin:4px 0 9px;padding:10px 12px;border-radius:10px;border:1px solid #375872;background:#132740;color:#dbf5ff;font-weight:700;font-size:12px}
     #settingsToggle:hover,#settingsToggle:focus-visible{border-color:var(--mint);outline:none}
@@ -71,27 +91,37 @@
   badge.setAttribute('aria-live', 'polite');
   badge.title = 'Progress toward mastery in the selected region';
 
-  // Settings remain discoverable; they simply collapse when a session begins.
+  // Three persistent main sections; the current challenge and practice choices live inside each.
   const side = document.querySelector('.side');
-  const settingsBtn = document.createElement('button');
-  settingsBtn.type = 'button';settingsBtn.id = 'settingsToggle';
-  settingsBtn.setAttribute('aria-expanded', 'true');
-  side.insertBefore(settingsBtn,side.querySelector('.fields'));
+  const existingModeField = $('mode').closest('.field');
+  existingModeField.id='legacyModeField';
+  const nav=document.createElement('nav');nav.className='mode-nav';nav.id='modeNav';nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Atlas Quest sections');
+  const sections=[['countries','Countries'],['capitals','Capitals'],['explore','Explore']];
+  for(const [key,name] of sections){
+    const button=document.createElement('button');button.type='button';button.className='mode-tab';button.id=`tab-${key}`;
+    button.setAttribute('role','tab');button.dataset.section=key;button.setAttribute('aria-selected',key===activeSection?'true':'false');
+    button.textContent=name;nav.append(button);
+  }
+  side.insertBefore(nav,side.querySelector('.fields'));
+  const settingsBtn = document.createElement('button');settingsBtn.type='button';settingsBtn.id='settingsToggle';settingsBtn.setAttribute('aria-expanded','true');
+  const runBtn = document.createElement('button');runBtn.type='button';runBtn.id='resetRun';runBtn.textContent='Reset run';runBtn.title='Abandon this run without deleting saved progress';runBtn.hidden=true;
+  const setupLine=document.createElement('div');setupLine.className='setup-line';setupLine.append(settingsBtn,runBtn);
+  side.insertBefore(setupLine,side.querySelector('.fields'));
   const config = document.createElement('div');config.id = 'setupControls';config.className = 'config-wrap';
   side.insertBefore(config,side.querySelector('.fields'));
   ['.fields','#reviewTypeWrap','#missedSummary','#flagToggleWrap','#speedToggleWrap','#start'].forEach(sel => {
     const el = side.querySelector(sel); if(el) config.appendChild(el);
   });
-  const adaptive = document.createElement('label');
-  adaptive.className = 'toggle';adaptive.id = 'adaptiveToggleWrap';
-  adaptive.innerHTML = `<span>Adaptive review<small>Revisit missed capitals later in a non-speedrun session.</small></span><input type="checkbox" id="adaptiveToggle" aria-label="Repeat missed capitals during practice">`;
-  config.insertBefore(adaptive,$('start'));
-  $('adaptiveToggle').checked = !!record.settings.adaptive;
-  $('adaptiveToggle').addEventListener('change', () => {record.settings.adaptive=$('adaptiveToggle').checked;store();});
-  const help = document.createElement('p');help.id='adaptiveHelp';help.className='v4-help';help.textContent='Adaptive practice revisits a missed capital after several other questions. Speedruns keep one question per country.';
-  config.insertBefore(help,$('start'));
-  const dueOption = document.createElement('option');dueOption.value='adaptive';dueOption.textContent='Adaptive Capital Practice';$('mode').insertBefore(dueOption,$('mode').querySelector('[value="review"]'));
-  MODE_DESCRIPTIONS.adaptive='Prioritizes capitals that are due for review, often missed, or not yet learned.';
+  const modeConfig=document.createElement('section');modeConfig.className='mode-configuration';modeConfig.id='modeConfiguration';
+  modeConfig.innerHTML=`<p id="modeSectionHint">Identify countries directly on the globe.</p>
+    <div class="field" id="capitalKindField"><label for="capitalKind">Capital challenge</label>
+      <select id="capitalKind"><option value="name">Type the capital</option><option value="find">Given a capital, find the country</option></select></div>
+    <div class="field" id="practiceControls"><label for="practiceStyle">Practice mode</label>
+      <select id="practiceStyle"><option value="standard">Standard — every country once</option><option value="missed">Missed answers — focused review</option><option value="adaptive">Adaptive — prioritize difficult answers</option></select>
+      <p class="v4-help" id="practiceHelp">Study each country once, in a random order.</p></div>`;
+  config.insertBefore(modeConfig,config.querySelector('.fields'));
+  // Challenge type and region remain together in their respective section.
+  $('flagToggleWrap').querySelector('small').textContent='Available when identifying a country from its capital.';
   const track = document.createElement('div');track.className='v4-progress';track.setAttribute('aria-hidden','true');track.innerHTML='<span id="trackFill"></span>';
   $('challengeStrip').insertAdjacentElement('afterend',track);
   const toast = document.createElement('div');toast.id='toast';toast.setAttribute('role','status');$('globeWrap').appendChild(toast);
@@ -99,7 +129,7 @@
   resetView.addEventListener('click',()=>{if(globe)globe.pointOfView(places[states.region]||places.All,600)});
   const stats = document.querySelector('.stats');
   const timeStat = document.createElement('div');timeStat.innerHTML='<span class="lbl">Time</span><strong class="val" id="timeValue">0:00</strong>';
-  stats.appendChild(timeStat);
+  timeStat.id='timeStat'; timeStat.hidden=true;stats.appendChild(timeStat);
   const masterySummary = document.createElement('div');masterySummary.id='masterySummary';masterySummary.className='v4-mastery';
   $('progress').insertAdjacentElement('afterend',masterySummary);
   const recordsSummary = document.createElement('div');recordsSummary.id='recordSummary';
@@ -116,24 +146,25 @@
     if(selected==='explore'){badge.hidden=true;return}
     badge.hidden=false;
     if(selected==='review'){
-      const m=$('reviewType').value, total=record.missed[m].filter(c=>r==='All'||byName[c]?.region===r).length;
+      const m=selectedQuiz(), total=record.missed[m].filter(c=>r==='All'||byName[c]?.region===r).length;
       badge.textContent=`${total} ${m==='locate'?'country':'capital'} answers to review`;return;
     }
-    const m=selected==='locate'?'locate':'name';
+    const m=selectedQuiz();
     const mastered=eligibleData().filter(d=>isMastered(modeMastery(m,d))).length;
     badge.textContent=`${mastered}/${count} ${m==='locate'?'countries':'capitals'} mastered`;
   }
   function updateMasterySummary(){
     const subset=eligibleData();
-    const entries=subset.map(d=>modeMastery('name',d));
+    const entries=subset.map(d=>modeMastery(selectedQuiz(),d));
     const mastered=entries.filter(isMastered).length;
     const learning=entries.filter(x=>x?.attempts && !isMastered(x)).length;
     const due=entries.filter(x=>x?.attempts && isDue(x)).length;
-    masterySummary.innerHTML=`<div><b>${mastered}</b>Capitals mastered</div><div><b>${learning}</b>Learning</div><div><b>${due}</b>Due for review</div>`;
-    const selected = $('mode').value==='adaptive'?'name':$('mode').value==='review' ? $('reviewType').value: $('mode').value;
+    const noun=activeSection==='countries'?'Countries':'Capitals';
+    masterySummary.innerHTML=activeSection==='explore'?'':`<div><b>${mastered}</b>${noun} mastered</div><div><b>${learning}</b>Learning</div><div><b>${due}</b>Due for review</div>`;
+    const selected = selectedQuiz();
     const key=`${selected}|${getRegion()}`;
     const pb=record.personalBests[key];
-    recordsSummary.textContent=pb?`Personal best (${selected}, ${getRegion()}): ${formatTime(pb.fastest)} · perfect: ${pb.perfect?formatTime(pb.perfect):'not yet'} · best accuracy: ${pb.accuracy}%`:'Speedrun records will appear here after you complete a timed challenge.';
+    recordsSummary.textContent=activeSection==='explore'?'':pb?`Speedrun best (${getRegion()}): ${formatTime(pb.fastest)} · perfect: ${pb.perfect?formatTime(pb.perfect):'not yet'} · best accuracy: ${pb.accuracy}%`:'Speedrun personal records appear after you complete a timed challenge.';
   }
   function updateVisualProgress(){
     const s=states;const length=s.round.length;
@@ -151,6 +182,7 @@
   function showToast(message,kind,delay){hideToast();toast.textContent=message;toast.className=`show ${kind}`;toastTimer=setTimeout(hideToast,Math.max(800,delay+250));}
   const elapsed = () => elapsedBefore+(timerStart?performance.now()-timerStart:0);
   function stopClock(){if(timerStart){elapsedBefore=elapsed();timerStart=0}if(timerInterval!==null){clearInterval(timerInterval);timerInterval=null}$('timeValue').textContent=formatTime(elapsedBefore)}
+  function resetClock(){stopClock();elapsedBefore=0;$('timeValue').textContent='0:00'}
   function startClock(){elapsedBefore=0;timerStart=performance.now();if(timerInterval!==null)clearInterval(timerInterval);timerInterval=setInterval(()=>{$('timeValue').textContent=formatTime(elapsed())},100)}
 
   function recordAnswer(correct){
@@ -161,13 +193,13 @@
     row.due=correct?now+stages[Math.min(Math.max(0,row.streak-1),stages.length-1)]*DAY:now;
     record.mastery[key]=row;
   }
-  function adaptivePriority(d){
-    const m=modeMastery('name',d), overdue=m&&m.due&&m.due<=Date.now();
-    const miss=record.missed.name.includes(d.country);
+  function adaptivePriority(d, mode){
+    const m=modeMastery(mode,d), overdue=m&&m.due&&m.due<=Date.now();
+    const miss=record.missed[mode].includes(d.country);
     return (miss?300:0)+(overdue?180:0)+(!m?80:0)+ (m?Math.max(0,90-15*m.streak):0) + Math.random()*20;
   }
   function repeatMiss(s){
-    if(!['name','find','locate'].includes(s.mode)||s.review||!record.settings.adaptive||$('speedToggle').checked)return;
+    if(!['name','find','locate'].includes(s.mode)||s.review||$('practiceStyle').value!=='adaptive'||$('speedToggle').checked)return;
     const key=s.current.country;
     if((repeatCount[key]||0)>=1)return;
     repeatCount[key]=(repeatCount[key]||0)+1;
@@ -175,22 +207,82 @@
     s.round.splice(at,0,s.current);
   }
 
-  // Wrapping V3's event logic preserves its scoring, feedback, country selection and maps.
-  store = function(){original.store();badgeUpdate();updateMasterySummary()};
-  switchMode = function(){original.switchMode();$('flagToggleWrap').classList.toggle('hidden',$('mode').value!=='find'&&!( $('mode').value==='review'&&$('reviewType').value==='find'));badgeUpdate();updateMasterySummary()};
+  // Route every tab and setting through a single session lifecycle. Changing tabs aborts
+  // the old run immediately, avoiding an old next-question timer or stale quiz state.
+  function selectedQuiz(){return activeSection==='countries'?'locate':$('capitalKind').value;}
+  function practiceSelection(){return $('practiceStyle').value;}
+  function refreshPracticeText(){
+    const style=practiceSelection(), quiz=selectedQuiz();
+    const hint=activeSection==='countries'?'Choose the highlighted country on the globe.':
+      quiz==='name'?'Type the capital when shown a country.':'Find the country when shown its capital.';
+    $('modeSectionHint').textContent=activeSection==='explore'?'Explore the globe freely: click any country for facts.':hint;
+    $('practiceHelp').textContent=style==='standard'?'Each country appears once per run.':
+      style==='missed'?'Only revisit countries you previously answered incorrectly in this challenge.':
+      'Practice unmastered and due countries first; missed answers may repeat later in untimed sessions.';
+    const count=record.missed[quiz].filter(c=>getRegion()==='All'||byName[c]?.region===getRegion()).length;
+    $('missedSummary').textContent=activeSection==='explore'?'':`${count} saved ${activeSection==='countries'?'country':'capital'} answer${count===1?'':'s'} to review in this region.`;
+    $('start').textContent=style==='missed'?'Review missed answers':style==='adaptive'?'Start adaptive practice':'Start challenge';
+    $('flagToggleWrap').classList.toggle('hidden',activeSection!=='capitals'||quiz!=='find');
+    $('speedToggleWrap').classList.toggle('hidden',activeSection==='explore');
+  }
+  function setModeForConfig(){
+    if(activeSection==='explore'){$('mode').value='explore';}
+    else if(practiceSelection()==='missed'){$('mode').value='review';$('reviewType').value=selectedQuiz();}
+    else $('mode').value=selectedQuiz();
+  }
+  function clearRun(){
+    cancelAdvance();hideToast();resetClock();activeSession=false;runBtn.hidden=true;
+    states.round=[];states.index=0;states.correct=0;states.streak=0;states.current=null;states.selected=null;states.answered=false;states.finished=true;states.review=false;
+    states.mode=activeSection==='explore'?'explore':selectedQuiz();states.region=getRegion();
+    $('quiz').classList.add('hidden');$('answer').classList.add('hidden');$('reveal').classList.add('hidden');
+    $('next').classList.add('hidden');$('mobileNext').classList.add('hidden');$('flagHint').classList.add('hidden');
+    $('result').classList.add('hidden');$('exploreCard').classList.add('hidden');
+    clearMarkers();hovered=null;tinyMarkers();paint();updateStats();
+    $('qSub').style.color='';$('qLabel').textContent=activeSection==='explore'?'Explore the world':'Ready to begin';
+    $('qTitle').textContent=activeSection==='explore'?'Explore the globe':'Choose your challenge';
+    $('qSub').textContent=activeSection==='explore'?'Click any country to view its geography facts.':'Select a region and practice mode, then start a run.';
+    $('timeStat').hidden=true;setExpanded(true);updateVisualProgress();
+  }
+  function selectSection(section, startExplore=true){
+    activeSection=section;side.dataset.section=section;
+    nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.section===section)));
+    clearRun();setModeForConfig();refreshPracticeText();badgeUpdate();updateMasterySummary();
+    if(section==='explore'&&startExplore)start();
+  }
+  nav.addEventListener('click',ev=>{const b=ev.target.closest('button[data-section]');if(b)selectSection(b.dataset.section)});
+  runBtn.addEventListener('click',()=>{clearRun();setModeForConfig();refreshPracticeText()});
+  for(const id of ['capitalKind','practiceStyle','region']){
+    $(id).addEventListener('change',()=>{
+      if(activeSection==='explore'){selectSection('explore');return;}
+      clearRun();setModeForConfig();refreshPracticeText();badgeUpdate();updateMasterySummary();
+    });
+  }
+  store = function(){original.store();refreshPracticeText();badgeUpdate();updateMasterySummary()};
+  switchMode = function(){setModeForConfig();original.switchMode();refreshPracticeText();badgeUpdate();updateMasterySummary()};
   updateStats = function(){original.updateStats();updateVisualProgress()};
   ask = function(){hideToast();original.ask();updateVisualProgress()};
   start = function(){
-    stopClock();hideToast();repeatCount={};
-    const adaptiveMode=$('mode').value==='adaptive';
-    if(adaptiveMode){
-      $('mode').value='name'; original.start(); $('mode').value='adaptive';
-      const s=states;
-      if(s.round.length){s.round=s.round.filter(d=>isDue(modeMastery('name',d)) || !isMastered(modeMastery('name',d)));s.round.sort((a,b)=>adaptivePriority(b)-adaptivePriority(a));s.index=0;if(s.round.length){ask();$('qLabel').textContent=`Adaptive Capital Practice · ${s.region==='All'?'World':s.region}`}else{$('qLabel').textContent='Adaptive Capital Practice';$('qTitle').textContent='All caught up';$('qSub').textContent='Your learned capitals are not due for review yet.';s.finished=true;$('quiz').classList.add('hidden')}}
-    }else original.start();
-    if(states.mode==='explore'&&globe){const dense=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Singapore']);globe.pointRadius(d=>dense.has(d.country)?.13:(d.region==='Oceania'?.34:.25))}
-    if(!states.finished&&states.round.length){startClock();setExpanded(false)}
-    else {setExpanded(true);$('timeValue').textContent='0:00'}
+    // Abort prior run before changing any underlying V3 state.
+    cancelAdvance();resetClock();hideToast();repeatCount={};
+    setModeForConfig();
+    const adaptiveMode=activeSection!=='explore'&&practiceSelection()==='adaptive';
+    original.start();
+    const s=states;
+    if(adaptiveMode && s.round.length){
+      const quiz=selectedQuiz();
+      s.round=s.round.filter(d=>isDue(modeMastery(quiz,d))||!isMastered(modeMastery(quiz,d)));
+      s.round.sort((a,b)=>adaptivePriority(b,quiz)-adaptivePriority(a,quiz));
+      s.index=0;
+      if(s.round.length){ask();$('qLabel').textContent=`Adaptive ${activeSection==='countries'?'Country':'Capital'} Practice · ${s.region==='All'?'World':s.region}`;}
+      else{$('qLabel').textContent='Adaptive Practice';$('qTitle').textContent='All caught up';$('qSub').textContent='No countries are due for review yet.';s.finished=true;$('quiz').classList.add('hidden');}
+    }
+    if(s.mode==='explore'&&globe){const dense=new Set(['Andorra','Monaco','Vatican City','San Marino','Liechtenstein','Luxembourg','Singapore']);globe.pointRadius(d=>dense.has(d.country)?.13:(d.region==='Oceania'?.34:.25));}
+    activeSession=!s.finished&&s.round.length>0;
+    runBtn.hidden=!activeSession;
+    const timed=activeSession&&$('speedToggle').checked;
+    $('timeStat').hidden=!timed;
+    if(timed)startClock();
+    if(activeSession)setExpanded(false);else setExpanded(true);
     badgeUpdate();updateMasterySummary();updateVisualProgress();
   };
   finish = function(correct,message,selected=null,opts={}){
@@ -207,7 +299,7 @@
     store();updateVisualProgress();
   };
   complete = function(){
-    stopClock();original.complete();
+    stopClock();activeSession=false;runBtn.hidden=true;original.complete();
     const s=states;if(!$('speedToggle').checked){badgeUpdate();return}
     const key=`${s.mode}|${s.region}`;const old=record.personalBests[key]||{};
     const percent=Math.round(s.correct/s.round.length*100);const ms=Math.round(elapsedBefore);
@@ -239,10 +331,12 @@
       .catch(()=>{if(id===studyRequest&&states.mode==='explore')$('cardBody').querySelector('.fact-source').textContent='Supplementary facts are currently unavailable. Capital and region information remain accessible offline.'});
   };
 
-  $('mode').addEventListener('change',()=>{badgeUpdate();updateMasterySummary()});
-  $('region').addEventListener('change',()=>{badgeUpdate();updateMasterySummary()});
-  $('reviewType').addEventListener('change',()=>{badgeUpdate();updateMasterySummary()});
-  $('speedToggle').addEventListener('change',()=>{if(states.answered&&!states.finished){updateNextControls(300)}store()});
+  // Switching speedrun settings during a run is treated as a new run. Otherwise the
+  // timer could be misleading, or a previously scheduled auto-next could keep running.
+  $('speedToggle').addEventListener('change',()=>{
+    if(activeSession)clearRun();
+    $('timeStat').hidden=true;store();
+  });
   $('reset').onclick = () => {
     if(confirm('Clear scores, missed answers, country mastery, review schedules, and personal records stored in this browser?')){
       record={correct:0,best:0,completed:0,missed:{name:[],find:[],locate:[]},speedrun:$('speedToggle').checked,mastery:{},personalBests:{},settings:{adaptive:$('adaptiveToggle').checked}};
@@ -257,6 +351,6 @@
   $('closeCard').addEventListener('click',()=>{studyRequest++});
   // A hard reset of the orientation is available, but no automatic re-centering between questions.
   $('challengeStrip').title='Quiz prompts remain visible while the globe keeps your chosen orientation.';
-  switchMode();store();updateVisualProgress();
+  selectSection('capitals',false);store();updateVisualProgress();
   document.documentElement.dataset.atlasVersion=VERSION;
 })();
